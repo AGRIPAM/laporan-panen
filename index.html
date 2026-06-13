@@ -28,6 +28,7 @@
             <option value="" disabled selected>Pilih Wilayah...</option>
             <option value="Aceh">Aceh</option>
             <option value="Sumatera Utara 1">Sumatera Utara 1</option>
+            <option value="Sumatera Utara 2 Ex Torganda">Sumatera Utara 2 Ex Torganda</option>
             <option value="Riau 1">Riau 1</option>
             <option value="Riau 2">Riau 2</option>
             <option value="Riau 3">Riau 3</option>
@@ -79,7 +80,6 @@
     const statusText = document.getElementById('status');
     const submitBtn = document.getElementById('submitBtn');
 
-  
     const scriptURL = 'https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec';
 
     form.addEventListener('submit', e => {
@@ -87,11 +87,11 @@
         submitBtn.innerText = "Mengirim...";
         submitBtn.disabled = true;
         statusText.innerText = "";
-        statusText.style.color = "black";
-
+        
         let requestBody = new FormData(form);
 
-        fetch(scriptURL, { method: 'POST', body: requestBody })
+        // Tambahan mode: 'no-cors' agar langsung bablas masuk ke Spreadsheet
+        fetch(scriptURL, { method: 'POST', body: requestBody, mode: 'no-cors' })
             .then(response => {
                 statusText.innerText = "Data berhasil dikirim!";
                 statusText.style.color = "green";
