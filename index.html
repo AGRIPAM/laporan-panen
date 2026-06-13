@@ -19,7 +19,11 @@
 
 <div class="container">
     <h2>Laporan Panen Harian</h2>
-    <form id="panenForm">
+    
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted){ showSuccess(); }"></iframe>
+    
+    <form action="https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec" method="POST" target="hidden_iframe" id="panenForm" onsubmit="submitted=true; startSubmit();">
+        
         <label>Tanggal Laporan:</label>
         <input type="date" id="tanggal" name="tanggal" required>
 
@@ -76,36 +80,25 @@
 </div>
 
 <script>
+    var submitted = false;
     const form = document.getElementById('panenForm');
     const statusText = document.getElementById('status');
     const submitBtn = document.getElementById('submitBtn');
 
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec';
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
+    function startSubmit() {
         submitBtn.innerText = "Mengirim...";
         submitBtn.disabled = true;
         statusText.innerText = "";
-        
-        let requestBody = new FormData(form);
+    }
 
-        // Tambahan mode: 'no-cors' agar langsung bablas masuk ke Spreadsheet
-        fetch(scriptURL, { method: 'POST', body: requestBody, mode: 'no-cors' })
-            .then(response => {
-                statusText.innerText = "Data berhasil dikirim!";
-                statusText.style.color = "green";
-                submitBtn.innerText = "Kirim Data";
-                submitBtn.disabled = false;
-                form.reset(); // Mengosongkan form
-            })
-            .catch(error => {
-                statusText.innerText = "Gagal mengirim data. Coba lagi.";
-                statusText.style.color = "red";
-                submitBtn.innerText = "Kirim Data";
-                submitBtn.disabled = false;
-            });
-    });
+    function showSuccess() {
+        statusText.innerText = "Data berhasil dikirim ke Spreadsheet!";
+        statusText.style.color = "green";
+        submitBtn.innerText = "Kirim Data";
+        submitBtn.disabled = false;
+        form.reset();
+        submitted = false;
+    }
 </script>
 
 </body>
