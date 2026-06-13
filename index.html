@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Laporan Panen TBS</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin: auto; }
+        h2 { text-align: center; color: #333; font-size: 20px; }
+        label { font-weight: bold; display: block; margin-top: 15px; color: #555; }
+        input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        #status { text-align: center; margin-top: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Laporan Panen Harian</h2>
+    <form id="panenForm">
+        <label>Tanggal Laporan:</label>
+        <input type="date" id="tanggal" name="tanggal" required>
+
+        <label>Region / Wilayah:</label>
+        <select id="region" name="region" required>
+            <option value="" disabled selected>Pilih Wilayah...</option>
+            <option value="Aceh">Aceh</option>
+            <option value="Sumatera Utara 1">Sumatera Utara 1</option>
+            <option value="Riau 1">Riau 1</option>
+            <!-- Kamu bisa menambahkan wilayah lainnya di sini dengan format yang sama -->
+            <option value="Sulawesi Tengah">Sulawesi Tengah</option>
+        </select>
+
+        <label>Jam Laporan:</label>
+        <select id="jam" name="jam" required>
+            <option value="" disabled selected>Pilih Jam...</option>
+            <option value="06.00">06.00</option>
+            <option value="07.00">07.00</option>
+            <option value="08.00">08.00</option>
+            <option value="09.00">09.00</option>
+            <option value="10.00">10.00</option>
+            <option value="11.00">11.00</option>
+            <option value="12.00">12.00</option>
+            <option value="13.00">13.00</option>
+            <option value="14.00">14.00</option>
+            <option value="15.00">15.00</option>
+            <option value="16.00">16.00</option>
+            <option value="17.30">17.30</option>
+        </select>
+
+        <label>Estimasi Panen (Ton):</label>
+        <input type="number" step="0.01" id="tonase" name="tonase" placeholder="Contoh: 15.5" required>
+
+        <button type="submit" id="submitBtn">Kirim Data</button>
+        <p id="status"></p>
+    </form>
+</div>
+
+<script>
+    const form = document.getElementById('panenForm');
+    const statusText = document.getElementById('status');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // GANTI TULISAN DI BAWAH INI DENGAN URL APPS SCRIPT-MU
+    const scriptURL = 'MASUKKAN_URL_APPS_SCRIPT_KAMU_DISINI';
+
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        submitBtn.innerText = "Mengirim...";
+        submitBtn.disabled = true;
+        statusText.innerText = "";
+        statusText.style.color = "black";
+
+        let requestBody = new FormData(form);
+
+        fetch(scriptURL, { method: 'POST', body: requestBody })
+            .then(response => {
+                statusText.innerText = "Data berhasil dikirim!";
+                statusText.style.color = "green";
+                submitBtn.innerText = "Kirim Data";
+                submitBtn.disabled = false;
+                form.reset(); // Mengosongkan form
+            })
+            .catch(error => {
+                statusText.innerText = "Gagal mengirim data. Coba lagi.";
+                statusText.style.color = "red";
+                submitBtn.innerText = "Kirim Data";
+                submitBtn.disabled = false;
+            });
+    });
+</script>
+
+</body>
+</html>
