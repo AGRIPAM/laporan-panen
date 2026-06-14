@@ -11,9 +11,16 @@
         label { font-weight: bold; display: block; margin-top: 15px; color: #555; font-size: 14px; }
         input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
         .readonly-input { background-color: #e9ecef; color: #495057; cursor: not-allowed; }
-        button { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer; }
-        button:hover { background-color: #218838; }
+        
+        /* Gaya Tombol */
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        button { flex: 1; padding: 12px; color: white; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .btn-submit { background-color: #28a745; }
+        .btn-submit:hover { background-color: #218838; }
+        .btn-delete { background-color: #dc3545; }
+        .btn-delete:hover { background-color: #c82333; }
         button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        
         #status { text-align: center; margin-top: 15px; font-weight: bold; font-size: 14px; }
     </style>
 </head>
@@ -22,10 +29,12 @@
 <div class="container">
     <h2>Laporan Panen Harian</h2>
     
-    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted){ showSuccess(); }"></iframe>
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted){ handleResponse(); }"></iframe>
     
-    <form id="panenForm" method="POST" target="hidden_iframe" onsubmit="return validateForm()" action="https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec">
+    <form id="panenForm" method="POST" target="hidden_iframe" onsubmit="return validateInsert()" action="https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec">
         
+        <input type="hidden" id="action" name="action" value="insert">
+
         <label>Tanggal Laporan:</label>
         <input type="date" id="tanggal" name="tanggal" required onchange="checkAccumulation()">
 
@@ -57,7 +66,7 @@
         </select>
 
         <label>Password Region:</label>
-        <input type="password" id="password" placeholder="Masukkan Password Region" required>
+        <input type="password" id="password" placeholder="Masukkan Password" required>
 
         <label>Jam Laporan:</label>
         <select id="jam" name="jam" required>
@@ -77,18 +86,21 @@
         </select>
 
         <label>Estimasi Panen Saat Ini (Ton):</label>
-        <input type="number" step="0.01" id="tonase" name="tonase" placeholder="Contoh: 15.5" required>
+        <input type="number" step="0.01" id="tonase" name="tonase" placeholder="Kosongkan jika hanya ingin Hapus Data">
 
-        <label>Total Akumulasi S/D Jam Sebelumnya (Ton):</label>
+        <label>Total Akumulasi (Ton):</label>
         <input type="number" step="0.01" id="akumulasi" name="akumulasi" class="readonly-input" value="0" readonly>
 
-        <button type="submit" id="submitBtn">Kirim Data</button>
+        <div class="btn-group">
+            <button type="submit" id="submitBtn" class="btn-submit">Kirim Data</button>
+            <button type="button" id="deleteBtn" class="btn-delete" onclick="validateDelete()">Hapus Jam Ini</button>
+        </div>
         <p id="status"></p>
     </form>
 </div>
 
 <script>
-    // 1. Daftar Password untuk masing-masing Region (Silakan ubah password sesuai kebutuhan)
+    // Daftar Lengkap Password Region
     const regionPasswords = {
         "Aceh": "passAceh",
         "Sumatera Utara 1": "passSU1",
@@ -115,76 +127,145 @@
     };
 
     var submitted = false;
+    var currentAction = "insert"; // Melacak apakah sedang kirim atau hapus
+
     const form = document.getElementById('panenForm');
     const statusText = document.getElementById('status');
     const submitBtn = document.getElementById('submitBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const actionInput = document.getElementById('action');
 
-    // Fungsi untuk mengecek akumulasi data panen lokal pada hari dan region yang dipilih
+    // Fungsi menghitung total tonase dari objek penyimpanan
+    function calculateTotal(dataHarian) {
+        let total = 0;
+        for (let jam in dataHarian) {
+            total += parseFloat(dataHarian[jam]);
+        }
+        return total;
+    }
+
     function checkAccumulation() {
         const tanggal = document.getElementById('tanggal').value;
         const region = document.getElementById('region').value;
         const akumulasiField = document.getElementById('akumulasi');
         
         if(tanggal && region) {
-            // Membuat Key unik untuk penyimpanan lokal (contoh: 2026-06-14_Riau 1)
             const storageKey = tanggal + "_" + region;
-            const savedData = JSON.parse(localStorage.getItem(storageKey)) || { totalTonase: 0, jamTersimpan: [] };
-            
-            // Setel nilai akumulasi ke form
-            akumulasiField.value = savedData.totalTonase.toFixed(2);
+            const dataHarian = JSON.parse(localStorage.getItem(storageKey)) || {};
+            akumulasiField.value = calculateTotal(dataHarian).toFixed(2);
         } else {
             akumulasiField.value = "0";
         }
     }
 
-    // Fungsi utama untuk validasi form sebelum terkirim ke Google Sheets
-    function validateForm() {
+    function checkPassword(region, inputPassword) {
+        if (!regionPasswords[region] || inputPassword !== regionPasswords[region]) {
+            alert("GAGAL: Password untuk region " + region + " salah!");
+            return false;
+        }
+        return true;
+    }
+
+    // --- LOGIKA UNTUK INPUT DATA ---
+    function validateInsert() {
         const region = document.getElementById('region').value;
         const inputPassword = document.getElementById('password').value;
         const tanggal = document.getElementById('tanggal').value;
         const jam = document.getElementById('jam').value;
-        const tonaseSekarang = parseFloat(document.getElementById('tonase').value);
+        const tonaseInput = document.getElementById('tonase').value;
 
-        // 1. Validasi Password
-        if (inputPassword !== regionPasswords[region]) {
-            alert("GAGAL: Password untuk region " + region + " salah!");
-            return false; // Mencegah form dikirim
-        }
-
-        // 2. Validasi Duplikasi Pengisian Jam (Mencegah input 2x di jam yang sama pada hari yang sama)
-        const storageKey = tanggal + "_" + region;
-        const savedData = JSON.parse(localStorage.getItem(storageKey)) || { totalTonase: 0, jamTersimpan: [] };
-
-        if (savedData.jamTersimpan.includes(jam)) {
-            alert("GAGAL: Data untuk jam " + jam + " sudah pernah diisi hari ini untuk region " + region + "!");
+        if (!tonaseInput) {
+            alert("Harap isi angka tonase untuk dikirim!");
             return false;
         }
 
-        // 3. Jika Lolos Validasi, Simpan/Akumulasi data ke Local Storage
-        savedData.jamTersimpan.push(jam);
-        savedData.totalTonase += tonaseSekarang;
-        localStorage.setItem(storageKey, JSON.stringify(savedData));
+        const tonaseSekarang = parseFloat(tonaseInput);
 
-        // Memulai proses loading UI pengiriman
-        startSubmit();
+        if (!checkPassword(region, inputPassword)) return false;
+
+        const storageKey = tanggal + "_" + region;
+        const dataHarian = JSON.parse(localStorage.getItem(storageKey)) || {};
+
+        if (dataHarian.hasOwnProperty(jam)) {
+            alert("GAGAL: Data untuk jam " + jam + " sudah pernah diisi. Gunakan tombol 'Hapus Jam Ini' jika ingin merevisi.");
+            return false;
+        }
+
+        // Simpan data jam beserta tonasenya
+        dataHarian[jam] = tonaseSekarang;
+        localStorage.setItem(storageKey, JSON.stringify(dataHarian));
+
+        currentAction = "insert";
+        actionInput.value = "insert";
+        startLoading("Mengirim...");
         return true; 
     }
 
-    function startSubmit() {
-        submitted = true;
-        submitBtn.innerText = "Mengirim...";
-        submitBtn.disabled = true;
-        statusText.innerText = "";
+    // --- LOGIKA UNTUK HAPUS DATA ---
+    function validateDelete() {
+        const region = document.getElementById('region').value;
+        const inputPassword = document.getElementById('password').value;
+        const tanggal = document.getElementById('tanggal').value;
+        const jam = document.getElementById('jam').value;
+
+        if (!tanggal || !region || !jam) {
+            alert("Pilih Tanggal, Region, dan Jam yang ingin dihapus!");
+            return;
+        }
+
+        if (!checkPassword(region, inputPassword)) return;
+
+        const storageKey = tanggal + "_" + region;
+        let dataHarian = JSON.parse(localStorage.getItem(storageKey)) || {};
+
+        if (!dataHarian.hasOwnProperty(jam)) {
+            alert("TIDAK DITEMUKAN: Tidak ada data yang tersimpan untuk jam " + jam + " di perangkat ini.");
+            return;
+        }
+
+        const confirmDelete = confirm("Apakah Anda yakin ingin menghapus data laporan jam " + jam + "?\nTonase sebesar " + dataHarian[jam] + " Ton akan dihapus dari akumulasi.");
+        
+        if (confirmDelete) {
+            // Hapus jam dari penyimpanan lokal
+            delete dataHarian[jam];
+            localStorage.setItem(storageKey, JSON.stringify(dataHarian));
+            checkAccumulation(); // Perbarui angka akumulasi di layar
+
+            // Eksekusi form untuk menghapus baris di Google Sheets
+            currentAction = "delete";
+            actionInput.value = "delete";
+            // Set tonase ke 0 agar form lolos validasi required saat dihapus
+            document.getElementById('tonase').value = "0"; 
+            
+            startLoading("Menghapus...");
+            form.submit();
+        }
     }
 
-    function showSuccess() {
-        statusText.innerText = "Data berhasil dikirim ke Spreadsheet!";
-        statusText.style.color = "green";
-        submitBtn.innerText = "Kirim Data";
-        submitBtn.disabled = false;
+    // --- PENGATURAN TAMPILAN ---
+    function startLoading(text) {
+        submitted = true;
+        submitBtn.disabled = true;
+        deleteBtn.disabled = true;
+        statusText.innerText = text;
+        statusText.style.color = "#555";
+    }
+
+    function handleResponse() {
+        if (currentAction === "insert") {
+            statusText.innerText = "Data berhasil dikirim ke Spreadsheet!";
+            statusText.style.color = "green";
+        } else {
+            statusText.innerText = "Data berhasil dihapus. Anda bisa mengisi ulang jam tersebut.";
+            statusText.style.color = "#dc3545";
+        }
         
-        // Reset form, tapi cek ulang akumulasinya agar field akumulasi update (naik nilainya)
+        submitBtn.disabled = false;
+        deleteBtn.disabled = false;
         form.reset();
+        
+        // Reset manual field action & tonase, dan panggil ulang kalkulasi
+        actionInput.value = "insert";
         document.getElementById('akumulasi').value = "0";
         submitted = false;
     }
