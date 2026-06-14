@@ -323,6 +323,7 @@
             },
             function (res) {
                 setLoading(false);
+                console.log("Respons hapus dari server:", res);
                 if (res.success) {
                     setStatus(res.message, "#dc3545");
                 } else {
