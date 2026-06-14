@@ -174,7 +174,7 @@
             return;
         }
 
-        akumulasiField.value = "...";
+        akumulasiField.value = "";
         setStatus("Mengambil data terbaru dari database...", "#555");
 
         jsonpRequest(
@@ -323,7 +323,7 @@
             },
             function (res) {
                 setLoading(false);
-                console.log("Respons hapus dari server:", res);
+                console.log("Respons hapus dari server:\n" + JSON.stringify(res, null, 2));
                 if (res.success) {
                     setStatus(res.message, "#dc3545");
                 } else {
