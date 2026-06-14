@@ -8,11 +8,13 @@
         body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
         .container { max-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin: auto; }
         h2 { text-align: center; color: #333; font-size: 20px; }
-        label { font-weight: bold; display: block; margin-top: 15px; color: #555; }
-        input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        label { font-weight: bold; display: block; margin-top: 15px; color: #555; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
+        .readonly-input { background-color: #e9ecef; color: #495057; cursor: not-allowed; }
         button { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer; }
         button:hover { background-color: #218838; }
-        #status { text-align: center; margin-top: 15px; font-weight: bold; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        #status { text-align: center; margin-top: 15px; font-weight: bold; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -22,13 +24,13 @@
     
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted){ showSuccess(); }"></iframe>
     
-    <form id="panenForm" method="POST" target="hidden_iframe" onsubmit="startSubmit()" action="https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec">
+    <form id="panenForm" method="POST" target="hidden_iframe" onsubmit="return validateForm()" action="https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec">
         
         <label>Tanggal Laporan:</label>
-        <input type="date" id="tanggal" name="tanggal" required>
+        <input type="date" id="tanggal" name="tanggal" required onchange="checkAccumulation()">
 
         <label>Region / Wilayah:</label>
-        <select id="region" name="region" required>
+        <select id="region" name="region" required onchange="checkAccumulation()">
             <option value="" disabled selected>Pilih Wilayah...</option>
             <option value="Aceh">Aceh</option>
             <option value="Sumatera Utara 1">Sumatera Utara 1</option>
@@ -54,6 +56,9 @@
             <option value="Sulawesi Tengah">Sulawesi Tengah</option>
         </select>
 
+        <label>Password Region:</label>
+        <input type="password" id="password" placeholder="Masukkan Password Region" required>
+
         <label>Jam Laporan:</label>
         <select id="jam" name="jam" required>
             <option value="" disabled selected>Pilih Jam...</option>
@@ -71,8 +76,11 @@
             <option value="17.30">17.30</option>
         </select>
 
-        <label>Estimasi Panen (Ton):</label>
+        <label>Estimasi Panen Saat Ini (Ton):</label>
         <input type="number" step="0.01" id="tonase" name="tonase" placeholder="Contoh: 15.5" required>
+
+        <label>Total Akumulasi S/D Jam Sebelumnya (Ton):</label>
+        <input type="number" step="0.01" id="akumulasi" name="akumulasi" class="readonly-input" value="0" readonly>
 
         <button type="submit" id="submitBtn">Kirim Data</button>
         <p id="status"></p>
@@ -80,10 +88,87 @@
 </div>
 
 <script>
+    // 1. Daftar Password untuk masing-masing Region (Silakan ubah password sesuai kebutuhan)
+    const regionPasswords = {
+        "Aceh": "passAceh",
+        "Sumatera Utara 1": "passSU1",
+        "Sumatera Utara 2 Ex Torganda": "passSU2",
+        "Riau 1": "passRiau1",
+        "Riau 2": "passRiau2",
+        "Riau 3": "passRiau3",
+        "Riau 4": "passRiau4",
+        "Bangka Belitung": "passBabel",
+        "Jambi": "passJambi",
+        "Sumatera Barat": "passSumbar",
+        "Sumatera Selatan": "passSumsel",
+        "Kalimantan Barat 1": "passKalbar1",
+        "Kalimantan Barat 2": "passKalbar2",
+        "Kalimantan Selatan 1": "passKalsel1",
+        "Kalimantan Selatan 2": "passKalsel2",
+        "Kalimantan Timur": "passKaltim",
+        "Kalimantan Utara": "passKalut",
+        "Kalimantan Tengah 1": "passKalteng1",
+        "Kalimantan Tengah 2": "passKalteng2",
+        "Kalimantan Tengah 3": "passKalteng3",
+        "Sulawesi Tenggara": "passSultra",
+        "Sulawesi Tengah": "passSulteng"
+    };
+
     var submitted = false;
     const form = document.getElementById('panenForm');
     const statusText = document.getElementById('status');
     const submitBtn = document.getElementById('submitBtn');
+
+    // Fungsi untuk mengecek akumulasi data panen lokal pada hari dan region yang dipilih
+    function checkAccumulation() {
+        const tanggal = document.getElementById('tanggal').value;
+        const region = document.getElementById('region').value;
+        const akumulasiField = document.getElementById('akumulasi');
+        
+        if(tanggal && region) {
+            // Membuat Key unik untuk penyimpanan lokal (contoh: 2026-06-14_Riau 1)
+            const storageKey = tanggal + "_" + region;
+            const savedData = JSON.parse(localStorage.getItem(storageKey)) || { totalTonase: 0, jamTersimpan: [] };
+            
+            // Setel nilai akumulasi ke form
+            akumulasiField.value = savedData.totalTonase.toFixed(2);
+        } else {
+            akumulasiField.value = "0";
+        }
+    }
+
+    // Fungsi utama untuk validasi form sebelum terkirim ke Google Sheets
+    function validateForm() {
+        const region = document.getElementById('region').value;
+        const inputPassword = document.getElementById('password').value;
+        const tanggal = document.getElementById('tanggal').value;
+        const jam = document.getElementById('jam').value;
+        const tonaseSekarang = parseFloat(document.getElementById('tonase').value);
+
+        // 1. Validasi Password
+        if (inputPassword !== regionPasswords[region]) {
+            alert("GAGAL: Password untuk region " + region + " salah!");
+            return false; // Mencegah form dikirim
+        }
+
+        // 2. Validasi Duplikasi Pengisian Jam (Mencegah input 2x di jam yang sama pada hari yang sama)
+        const storageKey = tanggal + "_" + region;
+        const savedData = JSON.parse(localStorage.getItem(storageKey)) || { totalTonase: 0, jamTersimpan: [] };
+
+        if (savedData.jamTersimpan.includes(jam)) {
+            alert("GAGAL: Data untuk jam " + jam + " sudah pernah diisi hari ini untuk region " + region + "!");
+            return false;
+        }
+
+        // 3. Jika Lolos Validasi, Simpan/Akumulasi data ke Local Storage
+        savedData.jamTersimpan.push(jam);
+        savedData.totalTonase += tonaseSekarang;
+        localStorage.setItem(storageKey, JSON.stringify(savedData));
+
+        // Memulai proses loading UI pengiriman
+        startSubmit();
+        return true; 
+    }
 
     function startSubmit() {
         submitted = true;
@@ -97,7 +182,10 @@
         statusText.style.color = "green";
         submitBtn.innerText = "Kirim Data";
         submitBtn.disabled = false;
+        
+        // Reset form, tapi cek ulang akumulasinya agar field akumulasi update (naik nilainya)
         form.reset();
+        document.getElementById('akumulasi').value = "0";
         submitted = false;
     }
 </script>
