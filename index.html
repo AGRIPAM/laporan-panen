@@ -69,13 +69,14 @@
     <label>Password Region:</label>
     <input type="password" id="loginPassword" placeholder="Masukkan Password">
 
-    <button onclick="prosesLogin()" class="btn-submit" style="width: 100%; margin-top: 20px;">Masuk</button>
+    <button id="loginBtn" onclick="prosesLogin()" class="btn-submit" style="width: 100%; margin-top: 20px;">Masuk</button>
     <p id="loginError" style="color: #dc3545; display: none; text-align: center; margin-top: 15px; font-weight: bold;"></p>
 </div>
 
 <div id="mainSection" class="container" style="display: none;">
     <h2>Laporan Panen Harian</h2>
-    
+    <p id="displayRegionText" class="active-region"></p>
+
 
     <form id="panenForm" onsubmit="return false;">
 
@@ -126,41 +127,20 @@
 
 <script>
     // =========================================================
-    // DATABASE PASSWORD REGION (SISI CLIENT)
-    // WAJIB DIGANTI DENGAN PASSWORD YANG SEBENARNYA!
-    // =========================================================
-    const dataPasswordRegion = {
-        "Aceh": "passaceh",
-        "Sumatera Utara 1": "passsumut1",
-        "Sumatera Utara 2 Ex Torganda": "passtorganda",
-        "Riau 1": "passriau1",
-        "Riau 2": "passriau2",
-        "Riau 3": "passriau3",
-        "Riau 4": "passriau4",
-        "Bangka Belitung": "passbabel",
-        "Jambi": "passjambi",
-        "Sumatera Barat": "passsumbar",
-        "Sumatera Selatan": "passsumsel",
-        "Kalimantan Barat 1": "passkalbar1",
-        "Kalimantan Barat 2": "passkalbar2",
-        "Kalimantan Selatan 1": "passkalsel1",
-        "Kalimantan Selatan 2": "passkalsel2",
-        "Kalimantan Timur": "passkaltim",
-        "Kalimantan Utara": "passkalut",
-        "Kalimantan Tengah 1": "passkalteng1",
-        "Kalimantan Tengah 2": "passkalteng2",
-        "Kalimantan Tengah 3": "passkalteng3",
-        "Sulawesi Tenggara": "passsultra",
-        "Sulawesi Tengah": "passsulteng"
-    };
-
-    // =========================================================
     // FUNGSI LOGIN & LOGOUT
     // =========================================================
+    // Catatan: validasi password TIDAK lagi dilakukan di sisi browser.
+    // Password divalidasi langsung oleh server (Apps Script) lewat
+    // action="login", menggunakan REGION_PASSWORDS di backend sebagai
+    // satu-satunya sumber kebenaran. Ini mencegah daftar password di
+    // frontend & backend menjadi tidak sinkron seperti sebelumnya.
     function prosesLogin() {
         var inputRegion = document.getElementById("loginRegion").value;
         var inputPassword = document.getElementById("loginPassword").value;
         var errorMsg = document.getElementById("loginError");
+        var loginBtn = document.getElementById("loginBtn");
+
+        errorMsg.style.display = "none";
 
         if (!inputRegion) {
             errorMsg.innerText = "Harap pilih Region terlebih dahulu!";
@@ -173,29 +153,45 @@
             return;
         }
 
-        // Cek apakah password yang dimasukkan cocok dengan data di atas
-        if (dataPasswordRegion[inputRegion] === inputPassword) {
-            // Sembunyikan bagian login, tampilkan bagian utama
-            document.getElementById("loginSection").style.display = "none";
-            document.getElementById("mainSection").style.display = "block";
+        loginBtn.disabled = true;
+        loginBtn.innerText = "Memeriksa...";
 
-            // Pindahkan nilai region dan password ke input tersembunyi
-            document.getElementById("region").value = inputRegion;
-            document.getElementById("password").value = inputPassword;
-            
-            // Tampilkan info region di bagian atas form
-            document.getElementById("displayRegionText").innerText = "Region: " + inputRegion;
-            
-            errorMsg.style.display = "none"; // Reset pesan error
-            
-            // Jika tanggal sudah terisi (misal user login ulang), langsung refresh data
-            if (document.getElementById("tanggal").value) {
-                checkAccumulation();
+        jsonpRequest(
+            { action: "login", region: inputRegion, password: inputPassword },
+            function (res) {
+                loginBtn.disabled = false;
+                loginBtn.innerText = "Masuk";
+
+                if (res.success) {
+                    // Sembunyikan bagian login, tampilkan bagian utama
+                    document.getElementById("loginSection").style.display = "none";
+                    document.getElementById("mainSection").style.display = "block";
+
+                    // Pindahkan nilai region dan password ke input tersembunyi
+                    document.getElementById("region").value = inputRegion;
+                    document.getElementById("password").value = inputPassword;
+
+                    // Tampilkan info region di bagian atas form
+                    document.getElementById("displayRegionText").innerText = "Region: " + inputRegion;
+
+                    errorMsg.style.display = "none"; // Reset pesan error
+
+                    // Jika tanggal sudah terisi (misal user login ulang), langsung refresh data
+                    if (document.getElementById("tanggal").value) {
+                        checkAccumulation();
+                    }
+                } else {
+                    errorMsg.innerText = res.message || ("Password salah untuk Region " + inputRegion + "!");
+                    errorMsg.style.display = "block";
+                }
+            },
+            function (errMsg) {
+                loginBtn.disabled = false;
+                loginBtn.innerText = "Masuk";
+                errorMsg.innerText = errMsg;
+                errorMsg.style.display = "block";
             }
-        } else {
-            errorMsg.innerText = "Password salah untuk Region " + inputRegion + "!";
-            errorMsg.style.display = "block";
-        }
+        );
     }
 
     function prosesLogout() {
@@ -204,7 +200,12 @@
         document.getElementById("status").innerText = "";
         document.getElementById("mainSection").style.display = "none";
         document.getElementById("loginSection").style.display = "block";
-        
+
+        // Kosongkan data sesi (region, password, tampilan region)
+        document.getElementById("region").value = "";
+        document.getElementById("password").value = "";
+        document.getElementById("displayRegionText").innerText = "";
+
         // Kosongkan state data
         currentJamData = {};
         updateJamHint();
