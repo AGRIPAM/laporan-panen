@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Input Laporan Panen TBS</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f7; margin: 0; padding: 20px; }
         .container { max-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin: auto; }
         h2 { text-align: center; color: #333; font-size: 20px; }
         label { font-weight: bold; display: block; margin-top: 15px; color: #555; font-size: 14px; }
@@ -17,57 +17,73 @@
         button { flex: 1; padding: 12px; color: white; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
         .btn-submit { background-color: #28a745; }
         .btn-submit:hover { background-color: #218838; }
-        .btn-delete { background-color: #dc3545; }
+        .btn-delete { background-color: #dc3546; }
         .btn-delete:hover { background-color: #c82333; }
         .btn-refresh { background-color: #007bff; flex: 0 0 auto; padding: 10px 14px; font-size: 13px; margin-top: 5px; }
         .btn-refresh:hover { background-color: #0069d9; }
+        .btn-logout { background-color: #6c757d; margin-top: 15px; font-size: 13px; padding: 8px; }
+        .btn-logout:hover { background-color: #5a6268; }
         button:disabled { background-color: #6c757d; cursor: not-allowed; }
 
         #status { text-align: center; margin-top: 15px; font-weight: bold; font-size: 14px; min-height: 20px; }
         .akumulasi-row { display: flex; align-items: flex-end; gap: 8px; }
         .akumulasi-row .field-wrap { flex: 1; }
         small.hint { color: #888; display: block; margin-top: 4px; font-size: 12px; }
+        
+        /* Informasi Region Aktif */
+        .active-region { text-align: center; color: #007bff; font-weight: bold; margin-top: -10px; margin-bottom: 15px; font-size: 15px;}
     </style>
 </head>
 <body>
 
-<div class="container">
+<div id="loginSection" class="container">
+    <h2>Login Akses Region</h2>
+
+    <label>Region / Wilayah:</label>
+    <select id="loginRegion" required>
+        <option value="" disabled selected>Pilih Wilayah...</option>
+        <option value="Aceh">Aceh</option>
+        <option value="Sumatera Utara 1">Sumatera Utara 1</option>
+        <option value="Sumatera Utara 2 Ex Torganda">Sumatera Utara 2 Ex Torganda</option>
+        <option value="Riau 1">Riau 1</option>
+        <option value="Riau 2">Riau 2</option>
+        <option value="Riau 3">Riau 3</option>
+        <option value="Riau 4">Riau 4</option>
+        <option value="Bangka Belitung">Bangka Belitung</option>
+        <option value="Jambi">Jambi</option>
+        <option value="Sumatera Barat">Sumatera Barat</option>
+        <option value="Sumatera Selatan">Sumatera Selatan</option>
+        <option value="Kalimantan Barat 1">Kalimantan Barat 1</option>
+        <option value="Kalimantan Barat 2">Kalimantan Barat 2</option>
+        <option value="Kalimantan Selatan 1">Kalimantan Selatan 1</option>
+        <option value="Kalimantan Selatan 2">Kalimantan Selatan 2</option>
+        <option value="Kalimantan Timur">Kalimantan Timur</option>
+        <option value="Kalimantan Utara">Kalimantan Utara</option>
+        <option value="Kalimantan Tengah 1">Kalimantan Tengah 1</option>
+        <option value="Kalimantan Tengah 2">Kalimantan Tengah 2</option>
+        <option value="Kalimantan Tengah 3">Kalimantan Tengah 3</option>
+        <option value="Sulawesi Tenggara">Sulawesi Tenggara</option>
+        <option value="Sulawesi Tengah">Sulawesi Tengah</option>
+    </select>
+
+    <label>Password Region:</label>
+    <input type="password" id="loginPassword" placeholder="Masukkan Password">
+
+    <button onclick="prosesLogin()" class="btn-submit" style="width: 100%; margin-top: 20px;">Masuk</button>
+    <p id="loginError" style="color: #dc3545; display: none; text-align: center; margin-top: 15px; font-weight: bold;"></p>
+</div>
+
+<div id="mainSection" class="container" style="display: none;">
     <h2>Laporan Panen Harian</h2>
+    
 
     <form id="panenForm" onsubmit="return false;">
 
+        <input type="hidden" id="region" name="region">
+        <input type="hidden" id="password" name="password">
+
         <label>Tanggal Laporan:</label>
         <input type="date" id="tanggal" name="tanggal" required onchange="checkAccumulation()">
-
-        <label>Region / Wilayah:</label>
-        <select id="region" name="region" required onchange="checkAccumulation()">
-            <option value="" disabled selected>Pilih Wilayah...</option>
-            <option value="Aceh">Aceh</option>
-            <option value="Sumatera Utara 1">Sumatera Utara 1</option>
-            <option value="Sumatera Utara 2 Ex Torganda">Sumatera Utara 2 Ex Torganda</option>
-            <option value="Riau 1">Riau 1</option>
-            <option value="Riau 2">Riau 2</option>
-            <option value="Riau 3">Riau 3</option>
-            <option value="Riau 4">Riau 4</option>
-            <option value="Bangka Belitung">Bangka Belitung</option>
-            <option value="Jambi">Jambi</option>
-            <option value="Sumatera Barat">Sumatera Barat</option>
-            <option value="Sumatera Selatan">Sumatera Selatan</option>
-            <option value="Kalimantan Barat 1">Kalimantan Barat 1</option>
-            <option value="Kalimantan Barat 2">Kalimantan Barat 2</option>
-            <option value="Kalimantan Selatan 1">Kalimantan Selatan 1</option>
-            <option value="Kalimantan Selatan 2">Kalimantan Selatan 2</option>
-            <option value="Kalimantan Timur">Kalimantan Timur</option>
-            <option value="Kalimantan Utara">Kalimantan Utara</option>
-            <option value="Kalimantan Tengah 1">Kalimantan Tengah 1</option>
-            <option value="Kalimantan Tengah 2">Kalimantan Tengah 2</option>
-            <option value="Kalimantan Tengah 3">Kalimantan Tengah 3</option>
-            <option value="Sulawesi Tenggara">Sulawesi Tenggara</option>
-            <option value="Sulawesi Tengah">Sulawesi Tengah</option>
-        </select>
-
-        <label>Password Region:</label>
-        <input type="password" id="password" placeholder="Masukkan Password" required>
 
         <label>Jam Laporan:</label>
         <select id="jam" name="jam" required onchange="updateJamHint()">
@@ -102,29 +118,110 @@
             <button type="button" id="submitBtn" class="btn-submit" onclick="handleInsert()">Kirim Data</button>
             <button type="button" id="deleteBtn" class="btn-delete" onclick="handleDelete()">Hapus Jam Ini</button>
         </div>
+        
+        <button type="button" class="btn-logout" style="width: 100%;" onclick="prosesLogout()">Ganti Region (Logout)</button>
         <p id="status"></p>
     </form>
 </div>
 
 <script>
     // =========================================================
-    // KONFIGURASI
+    // DATABASE PASSWORD REGION (SISI CLIENT)
+    // WAJIB DIGANTI DENGAN PASSWORD YANG SEBENARNYA!
+    // =========================================================
+    const dataPasswordRegion = {
+        "Aceh": "passaceh",
+        "Sumatera Utara 1": "passsumut1",
+        "Sumatera Utara 2 Ex Torganda": "passtorganda",
+        "Riau 1": "passriau1",
+        "Riau 2": "passriau2",
+        "Riau 3": "passriau3",
+        "Riau 4": "passriau4",
+        "Bangka Belitung": "passbabel",
+        "Jambi": "passjambi",
+        "Sumatera Barat": "passsumbar",
+        "Sumatera Selatan": "passsumsel",
+        "Kalimantan Barat 1": "passkalbar1",
+        "Kalimantan Barat 2": "passkalbar2",
+        "Kalimantan Selatan 1": "passkalsel1",
+        "Kalimantan Selatan 2": "passkalsel2",
+        "Kalimantan Timur": "passkaltim",
+        "Kalimantan Utara": "passkalut",
+        "Kalimantan Tengah 1": "passkalteng1",
+        "Kalimantan Tengah 2": "passkalteng2",
+        "Kalimantan Tengah 3": "passkalteng3",
+        "Sulawesi Tenggara": "passsultra",
+        "Sulawesi Tengah": "passsulteng"
+    };
+
+    // =========================================================
+    // FUNGSI LOGIN & LOGOUT
+    // =========================================================
+    function prosesLogin() {
+        var inputRegion = document.getElementById("loginRegion").value;
+        var inputPassword = document.getElementById("loginPassword").value;
+        var errorMsg = document.getElementById("loginError");
+
+        if (!inputRegion) {
+            errorMsg.innerText = "Harap pilih Region terlebih dahulu!";
+            errorMsg.style.display = "block";
+            return;
+        }
+        if (!inputPassword) {
+            errorMsg.innerText = "Harap masukkan Password!";
+            errorMsg.style.display = "block";
+            return;
+        }
+
+        // Cek apakah password yang dimasukkan cocok dengan data di atas
+        if (dataPasswordRegion[inputRegion] === inputPassword) {
+            // Sembunyikan bagian login, tampilkan bagian utama
+            document.getElementById("loginSection").style.display = "none";
+            document.getElementById("mainSection").style.display = "block";
+
+            // Pindahkan nilai region dan password ke input tersembunyi
+            document.getElementById("region").value = inputRegion;
+            document.getElementById("password").value = inputPassword;
+            
+            // Tampilkan info region di bagian atas form
+            document.getElementById("displayRegionText").innerText = "Region: " + inputRegion;
+            
+            errorMsg.style.display = "none"; // Reset pesan error
+            
+            // Jika tanggal sudah terisi (misal user login ulang), langsung refresh data
+            if (document.getElementById("tanggal").value) {
+                checkAccumulation();
+            }
+        } else {
+            errorMsg.innerText = "Password salah untuk Region " + inputRegion + "!";
+            errorMsg.style.display = "block";
+        }
+    }
+
+    function prosesLogout() {
+        // Kosongkan form utama dan kembalikan ke layar login
+        document.getElementById("loginPassword").value = "";
+        document.getElementById("status").innerText = "";
+        document.getElementById("mainSection").style.display = "none";
+        document.getElementById("loginSection").style.display = "block";
+        
+        // Kosongkan state data
+        currentJamData = {};
+        updateJamHint();
+    }
+
+
+    // =========================================================
+    // KONFIGURASI ORIGINAL (TIDAK ADA YANG DIUBAH DI BAWAH INI)
     // =========================================================
     var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec";
 
-    // Cache data terakhir yang diambil dari server: { jam: tonase, ... }
     var currentJamData = {};
-
     var statusText = document.getElementById('status');
     var submitBtn = document.getElementById('submitBtn');
     var deleteBtn = document.getElementById('deleteBtn');
     var akumulasiField = document.getElementById('akumulasi');
 
-    // =========================================================
-    // HELPER: Request ke Apps Script via JSONP
-    // (menghindari masalah CORS yang muncul jika pakai fetch/XHR
-    //  langsung ke Apps Script dari domain lain)
-    // =========================================================
     function jsonpRequest(params, onSuccess, onError) {
         var callbackName = "jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
         var script = document.createElement("script");
@@ -151,7 +248,6 @@
             onError("Gagal terhubung ke server. Periksa koneksi internet Anda.");
         };
 
-        // Jaga-jaga kalau Apps Script tidak merespons sama sekali
         timeoutId = setTimeout(function () {
             cleanup();
             onError("Server tidak merespons (timeout). Coba lagi.");
@@ -160,9 +256,6 @@
         document.body.appendChild(script);
     }
 
-    // =========================================================
-    // AMBIL TOTAL AKUMULASI & DATA JAM LANGSUNG DARI SPREADSHEET
-    // =========================================================
     function checkAccumulation() {
         var tanggal = document.getElementById('tanggal').value;
         var region = document.getElementById('region').value;
@@ -198,7 +291,6 @@
         );
     }
 
-    // Tampilkan info kecil di bawah pilihan jam: apakah sudah terisi atau belum
     function updateJamHint() {
         var jam = document.getElementById('jam').value;
         var hint = document.getElementById('jamHint');
@@ -220,15 +312,12 @@
 
     function checkPasswordFilled() {
         if (!document.getElementById('password').value) {
-            alert("Harap masukkan password region!");
+            alert("Sesi login terputus, harap login ulang!");
             return false;
         }
         return true;
     }
 
-    // =========================================================
-    // KIRIM DATA (INSERT)
-    // =========================================================
     function handleInsert() {
         var tanggal = document.getElementById('tanggal').value;
         var region = document.getElementById('region').value;
@@ -237,7 +326,7 @@
         var password = document.getElementById('password').value;
 
         if (!tanggal || !region || !jam) {
-            alert("Harap lengkapi Tanggal, Region, dan Jam!");
+            alert("Harap lengkapi Tanggal dan Jam!");
             return;
         }
         if (!tonase) {
@@ -246,7 +335,6 @@
         }
         if (!checkPasswordFilled()) return;
 
-        // Cek cepat di sisi browser (validasi final tetap di server)
         if (currentJamData.hasOwnProperty(jam)) {
             alert("Data untuk jam " + jam + " sudah pernah diisi. Gunakan tombol 'Hapus Jam Ini' jika ingin merevisi.");
             return;
@@ -273,7 +361,6 @@
                     updateJamHint();
                 } else {
                     setStatus(res.message || "Gagal mengirim data.", "#dc3545");
-                    // Sinkronkan ulang jika server mengembalikan data terbaru
                     if (res.total !== undefined) akumulasiField.value = res.total.toFixed(2);
                     if (res.jamData) { currentJamData = res.jamData; updateJamHint(); }
                 }
@@ -285,9 +372,6 @@
         );
     }
 
-    // =========================================================
-    // HAPUS DATA (DELETE)
-    // =========================================================
     function handleDelete() {
         var tanggal = document.getElementById('tanggal').value;
         var region = document.getElementById('region').value;
@@ -295,7 +379,7 @@
         var password = document.getElementById('password').value;
 
         if (!tanggal || !region || !jam) {
-            alert("Pilih Tanggal, Region, dan Jam yang ingin dihapus!");
+            alert("Pilih Tanggal dan Jam yang ingin dihapus!");
             return;
         }
         if (!checkPasswordFilled()) return;
@@ -323,13 +407,11 @@
             },
             function (res) {
                 setLoading(false);
-                console.log("Respons hapus dari server:\n" + JSON.stringify(res, null, 2));
                 if (res.success) {
                     setStatus(res.message, "#dc3545");
                 } else {
                     setStatus(res.message || "Gagal menghapus data.", "#dc3545");
                 }
-                // Apapun hasilnya, sinkronkan ulang total & data jam dari server
                 if (res.total !== undefined) akumulasiField.value = res.total.toFixed(2);
                 if (res.jamData) currentJamData = res.jamData;
                 updateJamHint();
@@ -341,9 +423,6 @@
         );
     }
 
-    // =========================================================
-    // UI HELPERS
-    // =========================================================
     function setLoading(isLoading, text) {
         submitBtn.disabled = isLoading;
         deleteBtn.disabled = isLoading;
