@@ -145,15 +145,78 @@
         <p id="status"></p>
     </form>
 </div>
-
 <script>
 // =========================================================================
-// KONFIGURASI — sesuaikan URL jika GAS di-redeploy
+// KONFIGURASI
 // =========================================================================
 var SCRIPT_URL     = "https://script.google.com/macros/s/AKfycbzqXfntnvNd7avgnfmfgeWu4UCf-iT2tVNMHZVNjJYZHpreOXow0R6nalGrMtqS4IGlFQ/exec";
 var MAX_RETRIES    = 2;
 var RETRY_DELAY_MS = 3000;
 var SESSION_KEY    = "agripam_session";
+var BC_CHANNEL     = "agripam_bc"; // nama channel BroadcastChannel
+
+// =========================================================================
+// BROADCASTCHANNEL — komunikasi antar tab
+// =========================================================================
+var bc = (typeof BroadcastChannel !== "undefined") ? new BroadcastChannel(BC_CHANNEL) : null;
+
+// Pesan yang dikirim/diterima antar tab:
+// { type: "SESSION_QUERY" }          → tab baru tanya: "ada sesi aktif?"
+// { type: "SESSION_ANNOUNCE", region } → tab aktif jawab: "saya aktif dengan region X"
+// { type: "SESSION_STARTED", region } → tab baru kasih tahu: "saya baru login region X"
+// { type: "SESSION_ENDED" }           → tab yang logout kasih tahu semua tab
+
+if (bc) {
+    bc.onmessage = function(event) {
+        var msg = event.data;
+        if (!msg || !msg.type) return;
+
+        if (msg.type === "SESSION_QUERY") {
+            // Ada tab baru yang tanya — jawab jika kita punya sesi aktif
+            var s = loadSession();
+            if (s) {
+                bc.postMessage({ type: "SESSION_ANNOUNCE", region: s.region });
+            }
+
+        } else if (msg.type === "SESSION_ANNOUNCE") {
+            // Ada tab lain yang aktif — simpan info ini untuk dipakai saat login
+            window._activeTabRegion = msg.region;
+
+        } else if (msg.type === "SESSION_STARTED") {
+            // Tab lain baru login — kita harus logout
+            var mySession = loadSession();
+            if (mySession) {
+                clearSession();
+                tampilkanLoginDariBC("Sesi Anda diakhiri karena ada login baru di tab lain (Region: " + msg.region + ").");
+            }
+
+        } else if (msg.type === "SESSION_ENDED") {
+            // Tab lain logout — tidak perlu aksi khusus, tapi reset flag
+            window._activeTabRegion = null;
+        }
+    };
+}
+
+// Saat halaman pertama dibuka, tanya apakah ada tab lain yang aktif
+// Tunggu 300ms untuk memberi waktu tab lain merespons
+function queryOtherTabs(callback) {
+    if (!bc) { callback(null); return; }
+
+    window._activeTabRegion = null;
+    bc.postMessage({ type: "SESSION_QUERY" });
+
+    setTimeout(function() {
+        callback(window._activeTabRegion || null);
+    }, 300);
+}
+
+function tampilkanLoginDariBC(pesan) {
+    // Paksa tampilan kembali ke halaman login dengan pesan
+    prosesLogoutSilent();
+    showLoginError(pesan);
+    document.getElementById("loginSection").style.display = "block";
+    document.getElementById("mainSection").style.display  = "none";
+}
 
 // =========================================================================
 // STATE
@@ -168,7 +231,7 @@ var deleteBtn   = document.getElementById("deleteBtn");
 var akumulasiEl = document.getElementById("akumulasi");
 
 // =========================================================================
-// SESSION HELPERS (#4)
+// SESSION HELPERS
 // =========================================================================
 
 function saveSession(region, token, ttlMs) {
@@ -244,7 +307,7 @@ function requireSession() {
 }
 
 // =========================================================================
-// JSONP ENGINE (#6 — dengan retry otomatis)
+// JSONP ENGINE
 // =========================================================================
 
 function jsonpRequest(params, onSuccess, onError, _retry) {
@@ -300,35 +363,52 @@ function prosesLogin() {
     loginBtn.disabled    = true;
     loginBtn.textContent = "Memeriksa...";
 
-    jsonpRequest(
-        { action: "login", region: region, password: password },
-        function (res) {
+    // Tanya tab lain dulu sebelum ke server
+    queryOtherTabs(function(activeRegion) {
+        if (activeRegion !== null) {
+            // Ada tab lain yang aktif — tolak login
             loginBtn.disabled    = false;
             loginBtn.textContent = "Masuk";
-
-            if (res.success) {
-                // (#4) Simpan TOKEN ke sessionStorage — bukan password
-                saveSession(region, res.token, res.ttlMs);
-
-                document.getElementById("loginSection").style.display = "none";
-                document.getElementById("mainSection").style.display  = "block";
-                document.getElementById("displayRegionText").textContent = "Region: " + region;
-                document.getElementById("loginPassword").value = "";
-
-                currentJamData = {};
-                updateJamHint();
-                if (document.getElementById("tanggal").value) checkAccumulation();
-
-            } else {
-                showLoginError(res.message || ("Password salah untuk Region " + region + "!"));
-            }
-        },
-        function (errMsg) {
-            loginBtn.disabled    = false;
-            loginBtn.textContent = "Masuk";
-            showLoginError(errMsg);
+            showLoginError(
+                "Login ditolak: ada sesi aktif di tab lain (Region: " + activeRegion + "). " +
+                "Tutup tab tersebut terlebih dahulu, lalu coba lagi."
+            );
+            return;
         }
-    );
+
+        // Tidak ada tab lain aktif — lanjut ke server
+        jsonpRequest(
+            { action: "login", region: region, password: password },
+            function (res) {
+                loginBtn.disabled    = false;
+                loginBtn.textContent = "Masuk";
+
+                if (res.success) {
+                    saveSession(region, res.token, res.ttlMs);
+
+                    // Beritahu tab lain bahwa kita baru login
+                    if (bc) bc.postMessage({ type: "SESSION_STARTED", region: region });
+
+                    document.getElementById("loginSection").style.display = "none";
+                    document.getElementById("mainSection").style.display  = "block";
+                    document.getElementById("displayRegionText").textContent = "Region: " + region;
+                    document.getElementById("loginPassword").value = "";
+
+                    currentJamData = {};
+                    updateJamHint();
+                    if (document.getElementById("tanggal").value) checkAccumulation();
+
+                } else {
+                    showLoginError(res.message || ("Password salah untuk Region " + region + "!"));
+                }
+            },
+            function (errMsg) {
+                loginBtn.disabled    = false;
+                loginBtn.textContent = "Masuk";
+                showLoginError(errMsg);
+            }
+        );
+    });
 }
 
 function showLoginError(msg) {
@@ -337,8 +417,20 @@ function showLoginError(msg) {
     el.style.display = "block";
 }
 
+// Logout normal (dengan broadcast)
 function prosesLogout() {
     clearSession();
+    if (bc) bc.postMessage({ type: "SESSION_ENDED" });
+    _resetUI();
+}
+
+// Logout diam-diam karena dipaksa oleh BroadcastChannel (tidak perlu broadcast balik)
+function prosesLogoutSilent() {
+    clearSession();
+    _resetUI();
+}
+
+function _resetUI() {
     currentJamData = {};
     isSubmitting   = false;
 
@@ -348,6 +440,7 @@ function prosesLogout() {
     document.getElementById("status").textContent         = "";
     document.getElementById("displayRegionText").textContent = "";
     document.getElementById("sessionInfo").textContent    = "";
+    document.getElementById("loginError").style.display   = "none";
     updateJamHint();
 }
 
@@ -355,7 +448,6 @@ function prosesLogout() {
 // AKUMULASI & JAM HINT
 // =========================================================================
 
-// (#8) Reset currentJamData SEGERA saat tanggal berubah, baru fetch
 function onTanggalChange() {
     currentJamData = {};
     updateJamHint();
@@ -412,11 +504,11 @@ function updateJamHint() {
 }
 
 // =========================================================================
-// INSERT (#5 double-submit, #7 validasi tonase, #4 token)
+// INSERT
 // =========================================================================
 
 function handleInsert() {
-    if (isSubmitting) { alert("Sedang memproses, harap tunggu."); return; } // (#5)
+    if (isSubmitting) { alert("Sedang memproses, harap tunggu."); return; }
 
     var s = requireSession();
     if (!s) return;
@@ -428,7 +520,6 @@ function handleInsert() {
     if (!tanggal || !jam) { alert("Harap lengkapi Tanggal dan Jam!"); return; }
     if (!tonase)          { alert("Harap isi angka tonase untuk dikirim!"); return; }
 
-    // (#7) Validasi range di client (GAS juga memvalidasi sebagai lapisan kedua)
     var tonaseNum = parseFloat(tonase);
     if (isNaN(tonaseNum) || tonaseNum < 0 || tonaseNum > 5000) {
         alert("Tonase tidak valid. Masukkan angka antara 0 dan 5.000 ton.");
@@ -444,14 +535,7 @@ function handleInsert() {
     setLoading(true, "Mengirim data...");
 
     jsonpRequest(
-        {
-            action:  "insert",
-            tanggal: tanggal,
-            region:  s.region,
-            jam:     jam,
-            tonase:  tonase,
-            token:   s.token    // (#4) token menggantikan password
-        },
+        { action: "insert", tanggal: tanggal, region: s.region, jam: jam, tonase: tonase, token: s.token },
         function (res) {
             isSubmitting = false;
             setLoading(false);
@@ -477,11 +561,11 @@ function handleInsert() {
 }
 
 // =========================================================================
-// DELETE (#5 double-submit, #4 token)
+// DELETE
 // =========================================================================
 
 function handleDelete() {
-    if (isSubmitting) { alert("Sedang memproses, harap tunggu."); return; } // (#5)
+    if (isSubmitting) { alert("Sedang memproses, harap tunggu."); return; }
 
     var s = requireSession();
     if (!s) return;
@@ -506,13 +590,7 @@ function handleDelete() {
     setLoading(true, "Menghapus data...");
 
     jsonpRequest(
-        {
-            action:  "delete",
-            tanggal: tanggal,
-            region:  s.region,
-            jam:     jam,
-            token:   s.token    // (#4) token menggantikan password
-        },
+        { action: "delete", tanggal: tanggal, region: s.region, jam: jam, token: s.token },
         function (res) {
             isSubmitting = false;
             setLoading(false);
@@ -561,6 +639,7 @@ function setStatus(text, color) {
 (function init() {
     var s = loadSession();
     if (s) {
+        // Tab ini sudah punya sesi (refresh) — langsung aktif, tidak perlu query
         document.getElementById("loginSection").style.display = "none";
         document.getElementById("mainSection").style.display  = "block";
         document.getElementById("displayRegionText").textContent = "Region: " + s.region;
@@ -568,6 +647,7 @@ function setStatus(text, color) {
         currentJamData = {};
         updateJamHint();
     }
+    // Jika tidak ada sesi, tidak perlu query — halaman login sudah tampil by default
 })();
 </script>
 
