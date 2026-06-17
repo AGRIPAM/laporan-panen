@@ -418,12 +418,19 @@ function showLoginError(msg) {
 }
 
 // Logout normal (dengan broadcast)
-function prosesLogout() {
-    clearSession();
-    if (bc) bc.postMessage({ type: "SESSION_ENDED" });
-    _resetUI();
+unction prosesLogout() {
+  var s = loadSession();
+  if (s) {
+    // Beritahu server untuk hapus sesi — fire and forget
+    jsonpRequest(
+      { action: "logout", token: s.token, region: s.region },
+      function() {}, function() {}
+    );
+  }
+  clearSession();
+  if (bc) bc.postMessage({ type: "SESSION_ENDED" });
+  _resetUI();
 }
-
 // Logout diam-diam karena dipaksa oleh BroadcastChannel (tidak perlu broadcast balik)
 function prosesLogoutSilent() {
     clearSession();
