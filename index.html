@@ -418,7 +418,7 @@ function showLoginError(msg) {
 }
 
 // Logout normal (dengan broadcast)
-unction prosesLogout() {
+function prosesLogout() {
   var s = loadSession();
   if (s) {
     // Beritahu server untuk hapus sesi — fire and forget
