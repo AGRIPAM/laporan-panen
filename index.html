@@ -4,29 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Input Laporan Panen TBS</title>
-    <style>
+        <style>
+        /* ===================== GAYA UTAMA (DIPERBARUI) ===================== */
         body { 
-            font-family: sans-serif; 
-            background-color: #fefefe; /* Warna dasar jika foto gagal dimuat */
+            font-family: 'Trebuchet MS', sans-serif; 
             margin: 0; 
             padding: 20px; 
+            min-height: 100vh; /* Tinggi minimal sepenuh layar */
+            box-sizing: border-box;
             
-            /* --- Pengaturan Background Foto --- */
-            background-image: url('panenbackground.png');
-            background-size: cover; /* Membuat foto memenuhi layar */
-            background-repeat: no-repeat; /* Mencegah foto berulang */
-            background-position: center; /* Memosisikan foto di tengah */
-            background-attachment: fixed; /* Membuat foto diam saat di-scroll */
+            /* Flexbox untuk menempatkan form tepat di tengah layar */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            
+            /* Pengaturan Background Foto dengan Gradient Gelap */
+            background-color: #fefefe; 
+            background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('panenbackground.png');
+            background-size: cover; 
+            background-repeat: no-repeat; 
+            background-position: center center; 
+            background-attachment: fixed; 
         }
         
         .container { 
+            width: 100%; 
             max-width: 400px; 
-            background: white; 
-            padding: 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-            margin: auto; 
+            
+            /* Efek kaca (Glassmorphism): putih dengan sedikit transparan */
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 30px 25px; 
+            border-radius: 12px; /* Sudut melengkung yang lebih modern */
+            
+            /* Bayangan form yang lebih lembut dan elegan */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); 
         }
+        /* =================================================================== */
         
         h2 { text-align: center; color: #333333; font-size: 20px; }
         
@@ -35,6 +48,7 @@
         input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
         
         .readonly-input { background-color: #e9ecef; color: #495057; cursor: not-allowed; }
+        
         /* Logo */
         .logo-wrapper { text-align: center; margin-bottom: 18px; margin-top: 4px; }
         .logo-wrapper img { max-width: 400px; width: 100%; height: auto; }
@@ -44,7 +58,7 @@
 
         /* Gaya Tombol */
         .btn-group { display: flex; gap: 10px; margin-top: 20px; }
-        button { flex: 1; padding: 12px; color: white; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        button { flex: 1; padding: 12px; color: white; border: none; border-radius: 4px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .btn-submit { background-color: #28a745; }
         .btn-submit:hover { background-color: #218838; }
         .btn-delete { background-color: #dc3546; }
