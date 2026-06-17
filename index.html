@@ -639,7 +639,29 @@ function setStatus(text, color) {
     statusText.textContent = text;
     statusText.style.color = color;
 }
+window.addEventListener("beforeunload", function() {
+    var s = loadSession();
+    if (!s) return;
 
+    // Gunakan sendBeacon jika tersedia (lebih reliable saat tab ditutup)
+    // Fallback ke JSONP biasa tidak bisa diandalkan saat unload
+    var url = SCRIPT_URL
+        + "?action=logout"
+        + "&token="  + encodeURIComponent(s.token)
+        + "&region=" + encodeURIComponent(s.region)
+        + "&callback=_";
+
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon(url);
+    } else {
+        // Fallback: XMLHttpRequest synchronous (deprecated tapi masih jalan)
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", url, false); // false = synchronous
+        try { xhr.send(); } catch(e) {}
+    }
+
+    clearSession();
+});
 // =========================================================================
 // INIT — pulihkan sesi jika halaman di-refresh
 // =========================================================================
