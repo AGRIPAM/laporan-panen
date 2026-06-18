@@ -124,7 +124,7 @@
 
     <button id="loginBtn" onclick="prosesLogin()" class="btn-submit"
             style="width:100%; margin-top:20px;">Masuk</button>
-    <p id="loginError" style="color:#dc3545;display:none;text-align:center;margin-top:15px;font-weight:bold;"></p>
+    <p id="loginError" style="color:#dc3535;display:none;text-align:center;margin-top:15px;font-weight:bold;"></p>
 </div>
 
 <!-- ===================== HALAMAN UTAMA ===================== -->
@@ -542,7 +542,7 @@ function updateJamHint() {
     if (currentJamData.hasOwnProperty(jam)) {
         hint.textContent = "Jam " + jam + " sudah terisi: " + currentJamData[jam] + " Ton. "
                          + "Gunakan 'Hapus Jam Ini' jika ingin merevisi.";
-        hint.style.color = "#dc3545";
+        hint.style.color = "#28a745";
     } else {
         hint.textContent = "Jam " + jam + " belum ada data.";
         hint.style.color = "#28a745";
