@@ -319,6 +319,10 @@ var submitBtn   = document.getElementById("submitBtn");
 var deleteBtn   = document.getElementById("deleteBtn");
 var akumulasiEl = document.getElementById("akumulasi");
 
+// Tombol di estimasi section — diambil saat dibutuhkan agar tidak null saat load
+function getEstimasiBtn()  { return document.getElementById("submitEstimasiBtn"); }
+function getDeleteEstBtn() { return document.getElementById("deleteEstimasiBtn"); }
+
 // =========================================================================
 // SESSION HELPERS
 // =========================================================================
@@ -530,13 +534,15 @@ function _resetUI() {
     currentJamData = {};
     isSubmitting   = false;
 
-    document.getElementById("mainSection").style.display  = "none";
-    document.getElementById("loginSection").style.display = "block";
-    document.getElementById("loginPassword").value        = "";
-    document.getElementById("status").textContent         = "";
+    document.getElementById("mainSection").style.display     = "none";
+    document.getElementById("estimasiSection").style.display = "none";
+    document.getElementById("loginSection").style.display    = "block";
+    document.getElementById("loginPassword").value           = "";
+    document.getElementById("status").textContent            = "";
+    document.getElementById("statusEstimasi").textContent    = "";
     document.getElementById("displayRegionText").textContent = "";
-    document.getElementById("sessionInfo").textContent    = "";
-    document.getElementById("loginError").style.display   = "none";
+    document.getElementById("sessionInfo").textContent       = "";
+    document.getElementById("loginError").style.display      = "none";
     updateJamHint();
 }
 
@@ -868,9 +874,7 @@ function handleDeleteEstimasi() {
     }
 
     var konfirmasi = confirm(
-        "Apakah Anda yakin ingin menghapus data estimasi tanggal " + tanggal + " untuk Region " + s.region + "?
-" +
-        "Data yang dihapus tidak dapat dikembalikan."
+        "Apakah Anda yakin ingin menghapus data estimasi tanggal " + tanggal + " untuk Region " + s.region + "?\nData yang dihapus tidak dapat dikembalikan."
     );
     if (!konfirmasi) return;
 
