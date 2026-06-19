@@ -857,7 +857,27 @@ function handleInsertEstimasi() {
     isSubmitting = true;
     var btn = document.getElementById("submitEstimasiBtn");
     var stat = document.getElementById("statusEstimasi");
-    
+     var estPanenNum = parseFloat(estPanen);
+    if (isNaN(estPanenNum) || estPanenNum < 0 || estPanenNum > 999999999) {
+        alert("Estimasi panen tidak valid. Masukkan angka antara 0 dan 999.999.999.");
+        return;
+    }
+     var outPanenNum = parseFloat(outPanen);
+    if (isNaN(outPanenNum) || outPanenNum < 0 || outPanenNum > 999999999) {
+        alert("Output panen tidak valid. Masukkan angka antara 0 dan 999.999.999.");
+        return;
+    }
+    var estkirimNum = parseFloat(estKirim);
+    if (isNaN(estkirimNum) || estkirimNum < 0 || estkirimNum > 999999999) {
+        alert("Estimasi kirim tidak valid. Masukkan angka antara 0 dan 999.999.999.");
+        return;
+    }
+    var estrestanNum = parseFloat(estRestan);
+    if (isNaN(estrestanNum) || estrestanNum < 0 || estrestanNum > 999999999) {
+        alert("Estimasi restan tidak valid. Masukkan angka antara 0 dan 999.999.999.");
+        return;
+    }
+
     btn.disabled = true;
     stat.textContent = "Mengirim data estimasi...";
     stat.style.color = "#555";
