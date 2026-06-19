@@ -223,6 +223,7 @@
 
         <div class="btn-group">
             <button type="button" id="submitEstimasiBtn" class="btn-submit" onclick="handleInsertEstimasi()">Kirim Estimasi</button>
+        <button type="button" id="deleteEstimasiBtn" class="btn-delete" onclick="handleDeleteEstimasi()">Hapus Estimasi</button>
         </div>
 
         <button type="button" class="btn-logout" style="width:100%; margin-top:10px; background-color: #17a2b8;" onclick="bukaRealisasi()">
@@ -852,6 +853,64 @@ function handleInsertEstimasi() {
         }
     );
 }
+// 4. Fungsi Hapus Data Estimasi dari Backend
+function handleDeleteEstimasi() {
+    if (isSubmitting) { alert("Sedang memproses, harap tunggu."); return; }
+
+    var s = requireSession();
+    if (!s) return;
+
+    var tanggal = document.getElementById("tanggalEstimasi").value;
+
+    if (!tanggal) {
+        alert("Pilih Tanggal Estimasi yang ingin dihapus!");
+        return;
+    }
+
+    var konfirmasi = confirm(
+        "Apakah Anda yakin ingin menghapus data estimasi tanggal " + tanggal + " untuk Region " + s.region + "?
+" +
+        "Data yang dihapus tidak dapat dikembalikan."
+    );
+    if (!konfirmasi) return;
+
+    isSubmitting = true;
+    var btn  = document.getElementById("deleteEstimasiBtn");
+    var stat = document.getElementById("statusEstimasi");
+
+    btn.disabled     = true;
+    stat.textContent = "Menghapus data estimasi...";
+    stat.style.color = "#555";
+
+    jsonpRequest(
+        {
+            action:  "deleteEstimasi",
+            tanggal: tanggal,
+            region:  s.region,
+            token:   s.token
+        },
+        function (res) {
+            isSubmitting = false;
+            btn.disabled = false;
+            if (res.success) {
+                stat.textContent = res.message || "Data estimasi berhasil dihapus!";
+                stat.style.color = "#dc3545";
+                document.getElementById("estimasiForm").reset();
+            } else {
+                if (isSessionError(res.message)) { alert(res.message); prosesLogout(); return; }
+                stat.textContent = res.message || "Gagal menghapus data.";
+                stat.style.color = "#dc3545";
+            }
+        },
+        function (errMsg) {
+            isSubmitting = false;
+            btn.disabled = false;
+            stat.textContent = errMsg;
+            stat.style.color = "#dc3545";
+        }
+    );
+}
+
 // =========================================================================
 // INIT — pulihkan sesi jika halaman di-refresh
 // =========================================================================
