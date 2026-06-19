@@ -200,7 +200,8 @@
 
     <form id="estimasiForm" onsubmit="return false;">
         <label>Tanggal Estimasi:</label>
-        <input type="date" id="tanggalEstimasi" required>
+        <input type="date" id="tanggalEstimasi" required onchange="checkEstimasi()">
+        <small class="hint" id="estimasiHint"></small>
 
         <label>Luas Panen (Ha):</label>
         <input type="number" step="0.01" id="luasPanen" placeholder="Contoh: 15.5">
@@ -318,6 +319,7 @@ var statusText  = document.getElementById("status");
 var submitBtn   = document.getElementById("submitBtn");
 var deleteBtn   = document.getElementById("deleteBtn");
 var akumulasiEl = document.getElementById("akumulasi");
+var currentEstimasiExists = false;
 
 // Tombol di estimasi section — diambil saat dibutuhkan agar tidak null saat load
 function getEstimasiBtn()  { return document.getElementById("submitEstimasiBtn"); }
@@ -397,6 +399,43 @@ function requireSession() {
         return null;
     }
     return s;
+}
+function checkEstimasi() {
+    var tanggal = document.getElementById("tanggalEstimasi").value;
+    var hint = document.getElementById("estimasiHint");
+    var s = loadSession();
+    
+    if (!tanggal || !s) {
+        hint.textContent = "";
+        currentEstimasiExists = false;
+        return;
+    }
+
+    hint.textContent = "Memeriksa data estimasi di database...";
+    hint.style.color = "#555";
+
+    jsonpRequest(
+        { action: "getEstimasiData", tanggal: tanggal, region: s.region },
+        function (res) {
+            if (res.success) {
+                currentEstimasiExists = res.exists;
+                if (res.exists) {
+                    hint.textContent = "Data estimasi tanggal ini sudah terisi (" + res.data.estimasiPanen + " Kg). Gunakan 'Hapus Estimasi' jika ingin merevisi.";
+                    hint.style.color = "#dc3545"; // Warna merah
+                } else {
+                    hint.textContent = "Tanggal ini belum ada data estimasi (Bisa diisi).";
+                    hint.style.color = "#28a745"; // Warna hijau
+                }
+            } else {
+                hint.textContent = "Gagal mengecek data.";
+                hint.style.color = "#dc3545";
+            }
+        },
+        function (errMsg) {
+            hint.textContent = "Gagal koneksi ke server.";
+            hint.style.color = "#dc3545";
+        }
+    );
 }
 
 // =========================================================================
