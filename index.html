@@ -32,7 +32,7 @@
             max-width: 400px; 
             
             /* Efek kaca (Glassmorphism): putih dengan sedikit transparan */
-            background: rgba(255, 255, 255, 0.6); 
+            background: rgba(255, 255, 255, 0.718); 
             padding: 30px 25px; 
             border-radius: 12px; /* Sudut melengkung yang lebih modern */
             
@@ -43,11 +43,11 @@
         
         h2 { text-align: center; color: #333333; font-size: 20px; }
         
-        label { font-weight: bold; display: block; margin-top: 15px; color: #090303; font-size: 14px; }
+        label { font-weight: bold; display: block; margin-top: 15px; color: #555; font-size: 14px; }
         
         input, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
         
-        .readonly-input { background-color: #e9ecef; color: #06101b; cursor: not-allowed; }
+        .readonly-input { background-color: #e9ecef; color: #495057; cursor: not-allowed; }
         
         /* Logo */
         .logo-wrapper { text-align: center; margin-bottom: 18px; margin-top: 4px; }
@@ -990,6 +990,13 @@ function handleDeleteEstimasi() {
     }
     // Jika tidak ada sesi, tidak perlu query — halaman login sudah tampil by default
 })();
+
+
+var clientIP = "Tidak Terdeteksi";
+fetch('https://api.ipify.org?format=json')
+  .then(response => response.json())
+  .then(data => { clientIP = data.ip; })
+  .catch(e => console.log("Gagal mendapatkan IP"));
 
 </script>
 
