@@ -510,8 +510,8 @@ function prosesLogin() {
 
         // Tidak ada tab lain aktif — lanjut ke server
         jsonpRequest(
-            { action: "login", region: region, password: password },
-            function (res) {
+    { action: "login", region: region, password: password, ip: clientIP },
+    function (res) {
                 loginBtn.disabled    = false;
                 loginBtn.textContent = "Masuk";
 
