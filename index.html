@@ -116,6 +116,7 @@
         <option value="Kalimantan Tengah 3">Kalimantan Tengah 3</option>
         <option value="Sulawesi Tenggara">Sulawesi Tenggara</option>
         <option value="Sulawesi Tengah">Sulawesi Tengah</option>
+        <option value="ADMIN">ADMIN</option>
     </select>
 
     <label>Password Region:</label>
@@ -498,58 +499,88 @@ function prosesLogin() {
     loginBtn.disabled    = true;
     loginBtn.textContent = "Memeriksa...";
 
-    // Tanya tab lain dulu sebelum ke server
-    queryOtherTabs(function(activeRegion) {
-        if (activeRegion !== null) {
-            // Ada tab lain yang aktif — tolak login
+    // ✅ PERUBAHAN: Tidak lagi blokir berdasarkan tab lain.
+    // Backend sekarang akan override sesi lama otomatis.
+    // Langsung kirim ke server.
+    jsonpRequest(
+        { action: "login", region: region, password: password, ip: clientIP },
+        function (res) {
             loginBtn.disabled    = false;
             loginBtn.textContent = "Masuk";
-            showLoginError(
-                "Login ditolak: ada sesi aktif di tab lain (Region: " + activeRegion + "). " +
-                "Tutup tab tersebut terlebih dahulu, lalu coba lagi."
-            );
-            return;
-        }
 
-        // Tidak ada tab lain aktif — lanjut ke server
-        jsonpRequest(
-    { action: "login", region: region, password: password, ip: clientIP },
-    function (res) {
-                loginBtn.disabled    = false;
-                loginBtn.textContent = "Masuk";
+            if (res.success) {
+                saveSession(region, res.token, res.ttlMs);
 
-                if (res.success) {
-                    saveSession(region, res.token, res.ttlMs);
+                // Beritahu tab lain bahwa kita baru login (mereka akan logout sendiri)
+                if (bc) bc.postMessage({ type: "SESSION_STARTED", region: region });
 
-                    // Beritahu tab lain bahwa kita baru login
-                    if (bc) bc.postMessage({ type: "SESSION_STARTED", region: region });
+                document.getElementById("loginSection").style.display = "none";
+                document.getElementById("mainSection").style.display  = "block";
+                document.getElementById("displayRegionText").textContent = "Region: " + region;
+                document.getElementById("loginPassword").value = "";
 
-                    document.getElementById("loginSection").style.display = "none";
-                    document.getElementById("mainSection").style.display  = "block";
-                    document.getElementById("displayRegionText").textContent = "Region: " + region;
-                    document.getElementById("loginPassword").value = "";
+                // ✅ BARU: Mulai heartbeat untuk perpanjang sesi otomatis
+                startHeartbeat();
 
-                    currentJamData = {};
-                    updateJamHint();
-                    if (document.getElementById("tanggal").value) checkAccumulation();
+                currentJamData = {};
+                updateJamHint();
+                if (document.getElementById("tanggal").value) checkAccumulation();
 
-                } else {
-                    showLoginError(res.message || ("Password salah untuk Region " + region + "!"));
-                }
-            },
-            function (errMsg) {
-                loginBtn.disabled    = false;
-                loginBtn.textContent = "Masuk";
-                showLoginError(errMsg);
+            } else {
+                showLoginError(res.message || ("Password salah untuk Region " + region + "!"));
             }
-        );
-    });
+        },
+        function (errMsg) {
+            loginBtn.disabled    = false;
+            loginBtn.textContent = "Masuk";
+            showLoginError(errMsg);
+        }
+    );
 }
 
 function showLoginError(msg) {
     var el = document.getElementById("loginError");
     el.textContent   = msg;
     el.style.display = "block";
+}
+
+// =========================================================================
+// ✅ BARU: HEARTBEAT — perpanjang sesi otomatis setiap 30 menit
+// =========================================================================
+var heartbeatInterval = null;
+
+function startHeartbeat() {
+    stopHeartbeat(); // bersihkan yang lama dulu
+    heartbeatInterval = setInterval(function() {
+        var s = loadSession();
+        if (!s) { stopHeartbeat(); return; }
+
+        jsonpRequest(
+            { action: "refreshToken", token: s.token, region: s.region },
+            function(res) {
+                if (res.success) {
+                    // Perbarui expiry di sessionStorage
+                    saveSession(s.region, s.token, res.ttlMs || (8 * 60 * 60 * 1000));
+                } else {
+                    // Token sudah tidak valid — paksa logout
+                    stopHeartbeat();
+                    alert("Sesi Anda berakhir: " + (res.message || "Silakan login ulang."));
+                    prosesLogout();
+                }
+            },
+            function() {
+                // Gagal koneksi — biarkan saja, coba lagi di interval berikutnya
+                console.log("Heartbeat gagal, akan coba lagi...");
+            }
+        );
+    }, 30 * 60 * 1000); // setiap 30 menit
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
 }
 
 // Logout normal (dengan broadcast)
@@ -562,12 +593,14 @@ function prosesLogout() {
       function() {}, function() {}
     );
   }
+  stopHeartbeat(); // ✅ BARU: hentikan heartbeat
   clearSession();
   if (bc) bc.postMessage({ type: "SESSION_ENDED" });
   _resetUI();
 }
 // Logout diam-diam karena dipaksa oleh BroadcastChannel (tidak perlu broadcast balik)
 function prosesLogoutSilent() {
+    stopHeartbeat(); // ✅ BARU: hentikan heartbeat
     clearSession();
     _resetUI();
 }
@@ -1008,6 +1041,7 @@ function handleDeleteEstimasi() {
         document.getElementById("mainSection").style.display  = "block";
         document.getElementById("displayRegionText").textContent = "Region: " + s.region;
         scheduleSessionWarning(s.expiry);
+        startHeartbeat(); // ✅ BARU: lanjutkan heartbeat setelah refresh halaman
         currentJamData = {};
         updateJamHint();
     }
