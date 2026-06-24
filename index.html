@@ -355,6 +355,49 @@
             transition: all 0.3s ease;
         }
 
+        .layout-wrapper.admin-layout {
+            max-width: 100%;
+            padding: 0 40px;
+        }
+
+        .layout-wrapper.admin-layout .column-left {
+            max-width: 100%;
+        }
+
+        .layout-wrapper.admin-layout .column-right {
+            flex: 3;
+        }
+
+        @media (min-width: 769px) {
+            .layout-wrapper.admin-layout {
+                height: calc(100vh - 100px);
+                box-sizing: border-box;
+            }
+
+            .layout-wrapper.admin-layout .column-left,
+            .layout-wrapper.admin-layout .column-right {
+                height: 100%;
+                max-height: 100%;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+
+            .layout-wrapper.admin-layout #chartContainer {
+                position: relative;
+                flex: 1 1 0%;
+                min-height: 0;
+                width: 100% !important;
+                max-width: 100% !important;
+                aspect-ratio: auto !important;
+                margin: 10px 0;
+            }
+
+            .layout-wrapper.admin-layout #realisasiChart {
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
+
         /* Floating Theme Toggle Button */
         .theme-toggle {
             position: fixed;
@@ -749,11 +792,15 @@
             </div>
 
             <p id="displayRegionText" class="active-region"></p>
-            
+
             <!-- Dropdown khusus ADMIN untuk memilih region -->
-            <div id="adminRegionSelectContainer" style="display: none; text-align: center; margin-top: -10px; margin-bottom: 15px;">
-                <label style="display: inline-block; margin-top: 0; margin-right: 10px; color: var(--text-secondary); font-size: 14px;">Region Monitor:</label>
-                <select id="adminRegionSelect" onchange="onAdminRegionChange()" style="display: inline-block; width: auto; padding: 6px 12px; margin-top: 0; font-weight: bold;"></select>
+            <div id="adminRegionSelectContainer"
+                style="display: none; text-align: center; margin-top: -10px; margin-bottom: 15px;">
+                <label
+                    style="display: inline-block; margin-top: 0; margin-right: 10px; color: var(--text-secondary); font-size: 14px;">Region
+                    Monitor:</label>
+                <select id="adminRegionSelect" onchange="onAdminRegionChange()"
+                    style="display: inline-block; width: auto; padding: 6px 12px; margin-top: 0; font-weight: bold;"></select>
             </div>
 
             <p id="sessionInfo" class="session-info"></p>
@@ -794,7 +841,8 @@
                     </div>
 
                     <div class="btn-group">
-                        <button type="button" id="submitBtn" class="btn-submit" onclick="handleInsert()">Kirim Data</button>
+                        <button type="button" id="submitBtn" class="btn-submit" onclick="handleInsert()">Kirim
+                            Data</button>
                         <button type="button" id="deleteBtn" class="btn-delete" onclick="handleDelete()">Hapus Jam
                             Ini</button>
                     </div>
@@ -818,7 +866,8 @@
             <h3
                 style="text-align: center; color: var(--text-primary); margin-top: 0; font-size: 30px; font-weight: bold;">
                 Grafik Realisasi Tiap Jam</h3>
-            <div style="width: 822px; height: 822px; max-width: 100%; aspect-ratio: 1 / 1; position: relative; margin: 15px auto; box-sizing: border-box;">
+            <div id="chartContainer"
+                style="width: 822px; height: 822px; max-width: 100%; aspect-ratio: 1 / 1; position: relative; margin: 15px auto; box-sizing: border-box;">
                 <canvas id="realisasiChart"></canvas>
             </div>
 
@@ -1490,7 +1539,11 @@
             currentJamData = {};
             isSubmitting = false;
 
-            document.getElementById("mainSection").style.display = "none";
+            var mainSection = document.getElementById("mainSection");
+            if (mainSection) {
+                mainSection.style.display = "none";
+                mainSection.classList.remove("admin-layout");
+            }
             document.getElementById("estimasiSection").style.display = "none";
             document.getElementById("loginSection").style.display = "block";
             document.getElementById("loginPassword").value = "";
@@ -1521,8 +1574,10 @@
             var displayRegionText = document.getElementById("displayRegionText");
             var adminContainer = document.getElementById("adminRegionSelectContainer");
             var panenInputFields = document.getElementById("panenInputFields");
+            var mainSection = document.getElementById("mainSection");
 
             if (s.region === "ADMIN") {
+                if (mainSection) mainSection.classList.add("admin-layout");
                 if (displayRegionText) displayRegionText.style.display = "none";
                 if (adminContainer) {
                     adminContainer.style.display = "block";
@@ -1543,6 +1598,7 @@
                 }
                 if (panenInputFields) panenInputFields.style.display = "none";
             } else {
+                if (mainSection) mainSection.classList.remove("admin-layout");
                 if (displayRegionText) {
                     displayRegionText.style.display = "block";
                     displayRegionText.textContent = "Region: " + s.region;
@@ -1661,13 +1717,21 @@
 
             if (!card || !compEstimasi || !compRealisasi || !compPercentage) return;
 
+            var tanggal = document.getElementById("tanggal").value;
+            var s = loadSession();
+
+            if (!tanggal || !s) {
+                card.style.display = "none";
+                return;
+            }
+
             var totalRealisasi = parseFloat(document.getElementById("akumulasi").value) || 0;
 
-            if (currentEstimasiPanen > 0) {
-                card.style.display = "block";
-                compEstimasi.textContent = currentEstimasiPanen.toFixed(2) + " Ton";
-                compRealisasi.textContent = totalRealisasi.toFixed(2) + " Ton";
+            card.style.display = "block";
+            compRealisasi.textContent = totalRealisasi.toFixed(2) + " Ton";
 
+            if (currentEstimasiPanen > 0) {
+                compEstimasi.textContent = currentEstimasiPanen.toFixed(2) + " Ton";
                 var pct = (totalRealisasi / currentEstimasiPanen) * 100;
                 compPercentage.textContent = pct.toFixed(2) + "%";
 
@@ -1679,7 +1743,9 @@
                     compPercentage.style.color = "#dc3545"; // Red
                 }
             } else {
-                card.style.display = "none";
+                compEstimasi.textContent = "0.00 Ton";
+                compPercentage.textContent = "0.00%";
+                compPercentage.style.color = "var(--text-muted)";
             }
         }
 
