@@ -326,7 +326,7 @@
             display: flex;
             gap: 20px;
             width: 100%;
-            max-width: 1200px;
+            max-width: 1400px;
             box-sizing: border-box;
             align-items: stretch;
             justify-content: center;
@@ -749,52 +749,63 @@
             </div>
 
             <p id="displayRegionText" class="active-region"></p>
+            
+            <!-- Dropdown khusus ADMIN untuk memilih region -->
+            <div id="adminRegionSelectContainer" style="display: none; text-align: center; margin-top: -10px; margin-bottom: 15px;">
+                <label style="display: inline-block; margin-top: 0; margin-right: 10px; color: var(--text-secondary); font-size: 14px;">Region Monitor:</label>
+                <select id="adminRegionSelect" onchange="onAdminRegionChange()" style="display: inline-block; width: auto; padding: 6px 12px; margin-top: 0; font-weight: bold;"></select>
+            </div>
+
             <p id="sessionInfo" class="session-info"></p>
 
             <form id="panenForm" onsubmit="return false;">
                 <label>Tanggal Laporan:</label>
                 <input type="date" id="tanggal" name="tanggal" required onchange="onTanggalChange()">
 
-                <label>Jam Laporan:</label>
-                <select id="jam" name="jam" required onchange="updateJamHint()">
-                    <option value="" disabled selected>Pilih Jam...</option>
-                    <option value="06.00">06.00</option>
-                    <option value="07.00">07.00</option>
-                    <option value="08.00">08.00</option>
-                    <option value="09.00">09.00</option>
-                    <option value="10.00">10.00</option>
-                    <option value="11.00">11.00</option>
-                    <option value="12.00">12.00</option>
-                    <option value="13.00">13.00</option>
-                    <option value="14.00">14.00</option>
-                    <option value="15.00">15.00</option>
-                    <option value="16.00">16.00</option>
-                    <option value="17.30">17.30</option>
-                </select>
-                <small class="hint" id="jamHint"></small>
+                <!-- Container input yang disembunyikan untuk ADMIN -->
+                <div id="panenInputFields">
+                    <label>Jam Laporan:</label>
+                    <select id="jam" name="jam" required onchange="updateJamHint()">
+                        <option value="" disabled selected>Pilih Jam...</option>
+                        <option value="06.00">06.00</option>
+                        <option value="07.00">07.00</option>
+                        <option value="08.00">08.00</option>
+                        <option value="09.00">09.00</option>
+                        <option value="10.00">10.00</option>
+                        <option value="11.00">11.00</option>
+                        <option value="12.00">12.00</option>
+                        <option value="13.00">13.00</option>
+                        <option value="14.00">14.00</option>
+                        <option value="15.00">15.00</option>
+                        <option value="16.00">16.00</option>
+                        <option value="17.30">17.30</option>
+                    </select>
+                    <small class="hint" id="jamHint"></small>
 
-                <label>Realisasi Panen Saat Ini (Ton):</label>
-                <input type="number" step="0.01" id="tonase" name="tonase" placeholder="">
+                    <label>Realisasi Panen Saat Ini (Ton):</label>
+                    <input type="number" step="0.01" id="tonase" name="tonase" placeholder="">
 
-                <label>Total Akumulasi (Ton) </label>
-                <div class="akumulasi-row">
-                    <div class="field-wrap">
-                        <input type="number" step="0.01" id="akumulasi" class="readonly-input" value="0" readonly>
+                    <label>Total Akumulasi (Ton) </label>
+                    <div class="akumulasi-row">
+                        <div class="field-wrap">
+                            <input type="number" step="0.01" id="akumulasi" class="readonly-input" value="0" readonly>
+                        </div>
+                        <button type="button" class="btn-refresh" onclick="checkAccumulation()">Refresh</button>
                     </div>
-                    <button type="button" class="btn-refresh" onclick="checkAccumulation()">Refresh</button>
+
+                    <div class="btn-group">
+                        <button type="button" id="submitBtn" class="btn-submit" onclick="handleInsert()">Kirim Data</button>
+                        <button type="button" id="deleteBtn" class="btn-delete" onclick="handleDelete()">Hapus Jam
+                            Ini</button>
+                    </div>
+
+                    <button type="button" class="btn-refresh"
+                        style="width:100%; margin-top:10px; background-color: #17a2b8;" onclick="bukaEstimasi()">
+                        Buka Form Estimasi Panen
+                    </button>
                 </div>
 
-                <div class="btn-group">
-                    <button type="button" id="submitBtn" class="btn-submit" onclick="handleInsert()">Kirim Data</button>
-                    <button type="button" id="deleteBtn" class="btn-delete" onclick="handleDelete()">Hapus Jam
-                        Ini</button>
-                </div>
-
-                <button type="button" class="btn-refresh"
-                    style="width:100%; margin-top:10px; background-color: #17a2b8;" onclick="bukaEstimasi()">
-                    Buka Form Estimasi Panen
-
-                </button><button type="button" class="btn-logout" style="width:100%;" onclick="prosesLogout()" ;">
+                <button type="button" class="btn-logout" style="width:100%;" onclick="prosesLogout()">
                     Logout
                 </button>
 
@@ -807,7 +818,7 @@
             <h3
                 style="text-align: center; color: var(--text-primary); margin-top: 0; font-size: 30px; font-weight: bold;">
                 Grafik Realisasi Tiap Jam</h3>
-            <div style="flex-grow: 1; position: relative; min-height: 350px; margin-top: 15px;">
+            <div style="width: 822px; height: 822px; max-width: 100%; aspect-ratio: 1 / 1; position: relative; margin: 15px auto; box-sizing: border-box;">
                 <canvas id="realisasiChart"></canvas>
             </div>
 
@@ -1367,8 +1378,8 @@
 
                         document.getElementById("loginSection").style.display = "none";
                         document.getElementById("mainSection").style.display = "flex";
-                        document.getElementById("displayRegionText").textContent = "Region: " + region;
                         document.getElementById("loginPassword").value = "";
+                        applyUserRoleUI();
 
                         startHeartbeat();
 
@@ -1486,8 +1497,12 @@
             document.getElementById("status").textContent = "";
             document.getElementById("statusEstimasi").textContent = "";
             document.getElementById("displayRegionText").textContent = "";
+            document.getElementById("displayRegionText").style.display = "block";
             document.getElementById("sessionInfo").textContent = "";
             document.getElementById("loginError").style.display = "none";
+
+            var adminContainer = document.getElementById("adminRegionSelectContainer");
+            if (adminContainer) adminContainer.style.display = "none";
 
             var container = document.getElementById("runningTextContainer");
             if (container) container.style.display = "none";
@@ -1497,6 +1512,50 @@
             currentEstimasiPanen = 0;
 
             updateJamHint();
+        }
+
+        function applyUserRoleUI() {
+            var s = loadSession();
+            if (!s) return;
+
+            var displayRegionText = document.getElementById("displayRegionText");
+            var adminContainer = document.getElementById("adminRegionSelectContainer");
+            var panenInputFields = document.getElementById("panenInputFields");
+
+            if (s.region === "ADMIN") {
+                if (displayRegionText) displayRegionText.style.display = "none";
+                if (adminContainer) {
+                    adminContainer.style.display = "block";
+                    var adminSelect = document.getElementById("adminRegionSelect");
+                    if (adminSelect && adminSelect.options.length === 0) {
+                        var loginSelect = document.getElementById("loginRegion");
+                        adminSelect.innerHTML = "";
+                        for (var i = 0; i < loginSelect.options.length; i++) {
+                            var opt = loginSelect.options[i];
+                            if (opt.value && opt.value !== "ADMIN") {
+                                var newOpt = document.createElement("option");
+                                newOpt.value = opt.value;
+                                newOpt.textContent = opt.textContent;
+                                adminSelect.appendChild(newOpt);
+                            }
+                        }
+                    }
+                }
+                if (panenInputFields) panenInputFields.style.display = "none";
+            } else {
+                if (displayRegionText) {
+                    displayRegionText.style.display = "block";
+                    displayRegionText.textContent = "Region: " + s.region;
+                }
+                if (adminContainer) adminContainer.style.display = "none";
+                if (panenInputFields) panenInputFields.style.display = "block";
+            }
+        }
+
+        function onAdminRegionChange() {
+            currentJamData = {};
+            updateJamHint();
+            checkAccumulation();
         }
 
         // =========================================================================
@@ -1523,11 +1582,19 @@
                 return;
             }
 
+            var region = s.region;
+            if (s.region === "ADMIN") {
+                var adminSelect = document.getElementById("adminRegionSelect");
+                if (adminSelect) {
+                    region = adminSelect.value;
+                }
+            }
+
             akumulasiEl.value = "";
             setLoading(true, "Mengambil data realisasi...");
 
             jsonpRequest(
-                { action: "getData", tanggal: tanggal, region: s.region },
+                { action: "getData", tanggal: tanggal, region: region },
                 function (res) {
                     if (res.success) {
                         akumulasiEl.value = res.total.toFixed(2);
@@ -1542,7 +1609,7 @@
 
                     // Ambil data estimasi rencana
                     jsonpRequest(
-                        { action: "getEstimasiData", tanggal: tanggal, region: s.region },
+                        { action: "getEstimasiData", tanggal: tanggal, region: region },
                         function (estRes) {
                             setLoading(false);
                             if (estRes.success && estRes.exists) {
@@ -2080,7 +2147,7 @@
                 // Tab ini sudah punya sesi (refresh) — langsung aktif, tidak perlu query
                 document.getElementById("loginSection").style.display = "none";
                 document.getElementById("mainSection").style.display = "flex";
-                document.getElementById("displayRegionText").textContent = "Region: " + s.region;
+                applyUserRoleUI();
                 scheduleSessionWarning(s.expiry);
                 startHeartbeat(); // ✅ BARU: lanjutkan heartbeat setelah refresh halaman
                 currentJamData = {};
