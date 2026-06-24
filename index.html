@@ -8,7 +8,7 @@
     <style>
         :root {
             /* Light Mode Default */
-            --bg-gradient: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.55)), url('BACKGROUNDHARVESTING.jpeg');
+            --bg-overlay-color: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.55));
             --card-bg: rgba(255, 255, 255, 0.85);
             --card-bg-solid: #ffffff;
             --text-primary: #111111;
@@ -24,7 +24,7 @@
 
         [data-theme="dark"] {
             /* Dark Mode Variables */
-            --bg-gradient: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85)), url('BACKGROUNDHARVESTING.jpeg');
+            --bg-overlay-color: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85));
             --card-bg: rgba(30, 41, 59, 0.85);
             --card-bg-solid: #1e293b;
             --text-primary: #f8fafc;
@@ -48,12 +48,49 @@
             align-items: center;
             justify-content: center;
             background-color: var(--card-bg-solid);
-            background-image: var(--bg-gradient);
+            transition: background-color 0.3s ease;
+        }
+
+        /* Background Slider Container */
+        .bg-slider {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .bg-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background-size: cover;
-            background-repeat: no-repeat;
             background-position: center center;
-            background-attachment: fixed;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        .bg-slide.active {
+            opacity: 1;
+        }
+
+        /* Overlay to keep the page content readable */
+        .bg-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background: var(--bg-overlay-color);
             transition: background 0.3s ease;
+            pointer-events: none;
         }
 
         .container {
@@ -304,7 +341,10 @@
         .column-right {
             flex: 2.2;
             min-width: 320px;
-            background: var(--card-bg-solid);
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
             padding: 30px 25px;
             border-radius: 12px;
             box-shadow: 0 10px 30px var(--shadow-color);
@@ -598,6 +638,14 @@
 
 <body>
 
+    <!-- Background Slideshow Slider -->
+    <div class="bg-slider">
+        <div class="bg-slide active" style="background-image: url('BACKGROUNDHARVESTING.jpeg');"></div>
+        <div class="bg-slide" style="background-image: url('PAGE 1.jpg');"></div>
+        <div class="bg-slide" style="background-image: url('PAGE 2.jpg');"></div>
+    </div>
+    <div class="bg-overlay"></div>
+
     <button id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()" title="Ubah Tema">
         <div class="theme-toggle-icon-wrapper">
             <!-- Sun Icon -->
@@ -753,7 +801,7 @@
         <!-- KOLOM KANAN: Grafik Realisasi Tiap Jam -->
         <div class="column-right">
             <h3
-                style="text-align: center; color: var(--text-primary); margin-top: 0; font-size: 18px; font-weight: bold;">
+                style="text-align: center; color: var(--text-primary); margin-top: 0; font-size: 30px; font-weight: bold;">
                 Grafik Realisasi Tiap Jam</h3>
             <div style="flex-grow: 1; position: relative; min-height: 350px; margin-top: 15px;">
                 <canvas id="realisasiChart"></canvas>
@@ -1145,9 +1193,10 @@
             // Safety check: ensure DOM elements exist
             if (!container || !content) return;
 
-            // Check if we are on the login page. If so, hide and abort.
+            // Check if we are on the login page or don't have a session. If so, hide and abort.
             var loginSection = document.getElementById("loginSection");
-            if (loginSection && loginSection.style.display !== "none") {
+            var s = loadSession();
+            if (!s || (loginSection && loginSection.style.display !== "none")) {
                 container.style.display = "none";
                 return;
             }
@@ -1170,6 +1219,13 @@
             jsonpRequest(
                 { action: "getRunningTextData", tanggal: tanggal, region: "ALL" },
                 function (res) {
+                    // Check session and login section visibility again to prevent asynchronous race conditions
+                    var currentSession = loadSession();
+                    if (!currentSession || (loginSection && loginSection.style.display !== "none")) {
+                        container.style.display = "none";
+                        return;
+                    }
+
                     if (res.success && res.allRecords && res.allRecords.length > 0) {
                         container.style.display = "block";
                         var displayDate = tanggal.split("-").reverse().join("/");
@@ -1220,6 +1276,13 @@
                     }
                 },
                 function (errMsg) {
+                    // Check session and login section visibility again to prevent asynchronous race conditions
+                    var currentSession = loadSession();
+                    if (!currentSession || (loginSection && loginSection.style.display !== "none")) {
+                        container.style.display = "none";
+                        return;
+                    }
+
                     container.style.display = "block";
                     content.innerHTML = '<span class="running-text-item" style="color: #dc3545;">Gagal memperbarui data running text.</span>';
                 }
@@ -1958,12 +2021,85 @@
 
             if (myChart) {
                 myChart.data.datasets[0].data = dataValues;
+
+                // Re-create gradient on update to ensure it fits the canvas properly
+                var ctx = canvas.getContext("2d");
+                var gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 300);
+                gradient.addColorStop(0, 'rgba(40, 167, 69, 0.9)');
+                gradient.addColorStop(1, 'rgba(40, 167, 69, 0.15)');
+                myChart.data.datasets[0].backgroundColor = gradient;
+
                 myChart.update();
             } else {
                 var ctx = canvas.getContext("2d");
                 var theme = document.documentElement.getAttribute("data-theme") || "light";
                 var gridColor = theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)";
                 var textColor = theme === "dark" ? "#cbd5e1" : "#444444";
+
+                // Create a beautiful linear gradient for normal background
+                var gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 300);
+                gradient.addColorStop(0, 'rgba(40, 167, 69, 0.9)');
+                gradient.addColorStop(1, 'rgba(40, 167, 69, 0.15)');
+
+                // Create a linear gradient for hover background
+                var hoverGradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 300);
+                hoverGradient.addColorStop(0, 'rgba(40, 167, 69, 1)');
+                hoverGradient.addColorStop(1, 'rgba(40, 167, 69, 0.35)');
+
+                // Custom plugin to draw values and percentage change
+                var chartDataLabelsPlugin = {
+                    id: 'chartDataLabels',
+                    afterDatasetsDraw: function (chart) {
+                        var ctx = chart.ctx;
+                        var theme = document.documentElement.getAttribute("data-theme") || "light";
+
+                        chart.data.datasets.forEach(function (dataset, i) {
+                            var meta = chart.getDatasetMeta(i);
+                            meta.data.forEach(function (bar, index) {
+                                var val = dataset.data[index];
+                                if (val === 0) return; // Don't draw if 0
+
+                                ctx.save();
+                                ctx.font = "bold 11px Calibri";
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'bottom';
+
+                                // Calculate percentage change compared to previous hour
+                                var prevVal = index > 0 ? dataset.data[index - 1] : 0;
+                                var pctText = "";
+                                var pctColor = "";
+
+                                if (index > 0 && prevVal > 0) {
+                                    var diff = val - prevVal;
+                                    var pct = (diff / prevVal) * 100;
+                                    if (pct > 0) {
+                                        pctText = "+" + pct.toFixed(2) + "%";
+                                        pctColor = theme === "dark" ? "#4ade80" : "#28a745"; // Green for increase
+                                    } else if (pct < 0) {
+                                        pctText = pct.toFixed(2) + "%";
+                                        pctColor = theme === "dark" ? "#f87171" : "#dc3545"; // Red for decrease
+                                    }
+                                }
+
+                                // Draw value text
+                                var valText = val.toFixed(2);
+                                ctx.fillStyle = theme === "dark" ? "#cbd5e1" : "#111111";
+
+                                if (pctText) {
+                                    // Draw value higher to fit the percentage label below it
+                                    ctx.fillText(valText, bar.x, bar.y - 15);
+                                    // Draw percentage change
+                                    ctx.fillStyle = pctColor;
+                                    ctx.fillText(pctText, bar.x, bar.y - 3);
+                                } else {
+                                    // Draw only value if no percentage change
+                                    ctx.fillText(valText, bar.x, bar.y - 3);
+                                }
+                                ctx.restore();
+                            });
+                        });
+                    }
+                };
 
                 myChart = new Chart(ctx, {
                     type: 'bar',
@@ -1972,11 +2108,11 @@
                         datasets: [{
                             label: 'Realisasi Panen (Ton)',
                             data: dataValues,
-                            backgroundColor: 'rgba(40, 167, 69, 0.9)',
+                            backgroundColor: gradient,
                             borderColor: 'rgba(40, 167, 69, 1)',
                             borderWidth: 1.5,
                             borderRadius: 4,
-                            hoverBackgroundColor: 'rgba(33, 136, 56, 0.95)'
+                            hoverBackgroundColor: hoverGradient
                         }]
                     },
                     options: {
@@ -1985,11 +2121,17 @@
                         scales: {
                             y: {
                                 beginAtZero: true,
+                                grace: '15%', // Prevent label clipping
                                 grid: {
                                     color: gridColor
                                 },
                                 ticks: {
                                     color: textColor,
+                                    font: {
+                                        family: 'Calibri',
+                                        size: 11,
+                                        weight: 'bold'
+                                    },
                                     callback: function (value) {
                                         return value + ' Ton';
                                     }
@@ -2000,7 +2142,12 @@
                                     display: false
                                 },
                                 ticks: {
-                                    color: textColor
+                                    color: textColor,
+                                    font: {
+                                        family: 'Calibri',
+                                        size: 11,
+                                        weight: 'bold'
+                                    }
                                 }
                             }
                         },
@@ -2009,6 +2156,16 @@
                                 display: false
                             },
                             tooltip: {
+                                titleFont: {
+                                    family: 'Calibri',
+                                    size: 11,
+                                    weight: 'bold'
+                                },
+                                bodyFont: {
+                                    family: 'Calibri',
+                                    size: 11,
+                                    weight: 'bold'
+                                },
                                 callbacks: {
                                     label: function (context) {
                                         return ' ' + context.parsed.y + ' Ton';
@@ -2016,10 +2173,26 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    plugins: [chartDataLabelsPlugin]
                 });
             }
         }
+
+        // =========================================================================
+        // BACKGROUND SLIDESHOW LOOP
+        // =========================================================================
+        (function initBgSlider() {
+            var slides = document.querySelectorAll('.bg-slide');
+            var currentIndex = 0;
+            if (slides.length === 0) return;
+
+            setInterval(function () {
+                slides[currentIndex].classList.remove('active');
+                currentIndex = (currentIndex + 1) % slides.length;
+                slides[currentIndex].classList.add('active');
+            }, 15000); // 15 seconds
+        })();
 
         updateRunningText();
         // Auto-refresh running text every 30 seconds to keep it real-time
