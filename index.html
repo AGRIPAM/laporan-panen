@@ -806,6 +806,24 @@
             <div style="flex-grow: 1; position: relative; min-height: 350px; margin-top: 15px;">
                 <canvas id="realisasiChart"></canvas>
             </div>
+
+            <!-- Comparison Card Estimasi vs Realisasi -->
+            <div id="estimasiComparisonCard" style="display: none; margin-top: 15px; padding: 15px; border-radius: 8px; background: var(--clock-bg); border: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-family: 'Calibri', sans-serif;">
+                    <div>
+                        <span style="font-size: 11px; color: var(--text-secondary); font-weight: bold; text-transform: uppercase;">Estimasi Rencana</span>
+                        <div style="font-size: 16px; font-weight: bold; color: var(--text-primary);" id="compCardEstimasi">0.00 Ton</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="font-size: 11px; color: var(--text-secondary); font-weight: bold; text-transform: uppercase;">Total Realisasi</span>
+                        <div style="font-size: 16px; font-weight: bold; color: var(--text-primary);" id="compCardRealisasi">0.00 Ton</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 11px; color: var(--text-secondary); font-weight: bold; text-transform: uppercase;">Pencapaian</span>
+                        <div style="font-size: 18px; font-weight: bold;" id="compCardPercentage">0.00%</div>
+                    </div>
+                </div>
+            </div>
             <p id="chartNoData"
                 style="text-align: center; color: var(--text-secondary); font-style: italic; margin-top: 20px; font-size: 14px;">
                 Belum ada data realisasi untuk tanggal ini.
@@ -987,6 +1005,7 @@
         var currentJamData = {};
         var isSubmitting = false;
         var sessionTimer = null;
+        var currentEstimasiPanen = 0; // estimasi panen dalam Ton
 
         var statusText = document.getElementById("status");
         var submitBtn = document.getElementById("submitBtn");
@@ -1085,6 +1104,19 @@
                 return;
             }
 
+            // Check deadline: H-1 before tanggal at 22:00:00 WIB
+            var now = new Date();
+            var utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            var wibNow = new Date(utc + (7 * 3600000));
+
+            var parts = tanggal.split("-");
+            var estYear = parseInt(parts[0], 10);
+            var estMonth = parseInt(parts[1], 10) - 1;
+            var estDay = parseInt(parts[2], 10);
+
+            var deadline = new Date(estYear, estMonth, estDay - 1, 22, 0, 0, 0);
+            var isLocked = wibNow.getTime() > deadline.getTime();
+
             setLoading(true, "Memeriksa data estimasi...");
 
             jsonpRequest(
@@ -1094,8 +1126,9 @@
                     if (res.success) {
                         currentEstimasiExists = res.exists;
                         if (res.exists) {
-                            hint.textContent = "Data estimasi tanggal ini sudah terisi (" + res.data.estimasiPanen + " Kg). Gunakan 'Hapus Estimasi' jika ingin merevisi.";
-                            hint.style.color = "#dc3545";
+                            hint.textContent = "Data estimasi tanggal ini sudah terisi (" + res.data.estimasiPanen + " Kg)." + 
+                                               (isLocked ? " (Pengisian Baru / Edit ditutup)" : "");
+                            hint.style.color = isLocked ? "#ffa600" : "#dc3545";
 
                             document.getElementById("luasPanen").value = res.data.luasPanen;
                             document.getElementById("estimasiRestanLalu").value = res.data.estimasiRestanLalu;
@@ -1105,8 +1138,19 @@
                             document.getElementById("estimasiKirim").value = res.data.estimasiKirim;
                             document.getElementById("estimasiRestan").value = res.data.estimasiRestan;
                         } else {
-                            hint.textContent = "Tanggal ini belum ada data estimasi (Bisa diisi).";
-                            hint.style.color = "#28a745";
+                            if (isLocked) {
+                                var d1 = new Date(estYear, estMonth, estDay - 1);
+                                var d1Day = String(d1.getDate()).padStart(2, '0');
+                                var d1Month = String(d1.getMonth() + 1).padStart(2, '0');
+                                var d1Year = d1.getFullYear();
+                                var deadlineStr = d1Day + "/" + d1Month + "/" + d1Year + " pukul 22.00 WIB";
+
+                                hint.textContent = "Pengisian ditutup! Batas pengisian berakhir pada " + deadlineStr;
+                                hint.style.color = "#dc3545";
+                            } else {
+                                hint.textContent = "Tanggal ini belum ada data estimasi (Bisa diisi).";
+                                hint.style.color = "#28a745";
+                            }
 
                             document.getElementById("luasPanen").value = "";
                             document.getElementById("estimasiRestanLalu").value = "";
@@ -1435,6 +1479,10 @@
             var container = document.getElementById("runningTextContainer");
             if (container) container.style.display = "none";
 
+            var compCard = document.getElementById("estimasiComparisonCard");
+            if (compCard) compCard.style.display = "none";
+            currentEstimasiPanen = 0;
+
             updateJamHint();
         }
 
@@ -1457,6 +1505,8 @@
                 currentJamData = {};
                 updateJamHint();
                 setLoading(false);
+                currentEstimasiPanen = 0;
+                updateEstimasiComparison();
                 return;
             }
 
@@ -1466,7 +1516,6 @@
             jsonpRequest(
                 { action: "getData", tanggal: tanggal, region: s.region },
                 function (res) {
-                    setLoading(false);
                     if (res.success) {
                         akumulasiEl.value = res.total.toFixed(2);
                         currentJamData = res.jamData || {};
@@ -1477,11 +1526,33 @@
                         setStatus(res.message || "Gagal mengambil data.", "#dc3545");
                     }
                     updateJamHint();
+
+                    // Ambil data estimasi rencana
+                    jsonpRequest(
+                        { action: "getEstimasiData", tanggal: tanggal, region: s.region },
+                        function (estRes) {
+                            setLoading(false);
+                            if (estRes.success && estRes.exists) {
+                                var estPanenKg = parseFloat(estRes.data.estimasiPanen) || 0;
+                                currentEstimasiPanen = estPanenKg / 1000; // Konversi Kg ke Ton
+                            } else {
+                                currentEstimasiPanen = 0;
+                            }
+                            updateEstimasiComparison();
+                        },
+                        function () {
+                            setLoading(false);
+                            currentEstimasiPanen = 0;
+                            updateEstimasiComparison();
+                        }
+                    );
                 },
                 function (errMsg) {
                     setLoading(false);
                     akumulasiEl.value = "0";
                     setStatus(errMsg, "#dc3545");
+                    currentEstimasiPanen = 0;
+                    updateEstimasiComparison();
                 }
             );
         }
@@ -1499,6 +1570,36 @@
             } else {
                 hint.textContent = "Jam " + jam + " belum ada data.";
                 hint.style.color = "#28a745";
+            }
+        }
+
+        function updateEstimasiComparison() {
+            var card = document.getElementById("estimasiComparisonCard");
+            var compEstimasi = document.getElementById("compCardEstimasi");
+            var compRealisasi = document.getElementById("compCardRealisasi");
+            var compPercentage = document.getElementById("compCardPercentage");
+
+            if (!card || !compEstimasi || !compRealisasi || !compPercentage) return;
+
+            var totalRealisasi = parseFloat(document.getElementById("akumulasi").value) || 0;
+
+            if (currentEstimasiPanen > 0) {
+                card.style.display = "block";
+                compEstimasi.textContent = currentEstimasiPanen.toFixed(2) + " Ton";
+                compRealisasi.textContent = totalRealisasi.toFixed(2) + " Ton";
+
+                var pct = (totalRealisasi / currentEstimasiPanen) * 100;
+                compPercentage.textContent = pct.toFixed(2) + "%";
+
+                if (pct >= 100) {
+                    compPercentage.style.color = "#28a745"; // Green
+                } else if (pct >= 80) {
+                    compPercentage.style.color = "#ffa600"; // Orange
+                } else {
+                    compPercentage.style.color = "#dc3545"; // Red
+                }
+            } else {
+                card.style.display = "none";
             }
         }
 
@@ -1551,6 +1652,7 @@
                         if (res.jamData !== undefined) currentJamData = res.jamData;
                     }
                     updateJamHint();
+                    updateEstimasiComparison();
                 },
                 function (errMsg) {
                     isSubmitting = false;
@@ -1604,6 +1706,7 @@
                     if (res.total !== undefined) akumulasiEl.value = res.total.toFixed(2);
                     if (res.jamData !== undefined) currentJamData = res.jamData;
                     updateJamHint();
+                    updateEstimasiComparison();
                 },
                 function (errMsg) {
                     isSubmitting = false;
@@ -1779,6 +1882,31 @@
             // Validasi kelengkapan
             if (!tanggal || !luasPanen || !estRestanLalu || !tkPanen || !estPanen || !estKirim || !estRestan) {
                 alert("Harap lengkapi semua isian estimasi!");
+                return;
+            }
+
+            // Lock jam pengisian: Maksimal H-1 jam 22.00 WIB
+            var now = new Date();
+            var utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            var wibNow = new Date(utc + (7 * 3600000));
+
+            var parts = tanggal.split("-");
+            var estYear = parseInt(parts[0], 10);
+            var estMonth = parseInt(parts[1], 10) - 1;
+            var estDay = parseInt(parts[2], 10);
+
+            var deadline = new Date(estYear, estMonth, estDay - 1, 22, 0, 0, 0);
+
+            if (wibNow.getTime() > deadline.getTime()) {
+                var d1 = new Date(estYear, estMonth, estDay - 1);
+                var d1Day = String(d1.getDate()).padStart(2, '0');
+                var d1Month = String(d1.getMonth() + 1).padStart(2, '0');
+                var d1Year = d1.getFullYear();
+                var deadlineDateStr = d1Day + "/" + d1Month + "/" + d1Year;
+
+                alert("Pengisian ditutup! Batas pengisian rencana estimasi untuk tanggal " + 
+                      tanggal.split("-").reverse().join("/") + 
+                      " telah berakhir pada tanggal " + deadlineDateStr + " pukul 22.00 WIB.");
                 return;
             }
 
