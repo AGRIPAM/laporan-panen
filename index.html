@@ -793,14 +793,39 @@
 
             <p id="displayRegionText" class="active-region"></p>
 
-            <!-- Dropdown khusus ADMIN untuk memilih region -->
+            <!-- Dropdown khusus ADMIN untuk memilih region atau rekapan CRO -->
             <div id="adminRegionSelectContainer"
                 style="display: none; text-align: center; margin-top: -10px; margin-bottom: 15px;">
-                <label
-                    style="display: inline-block; margin-top: 0; margin-right: 10px; color: var(--text-secondary); font-size: 14px;">Region
-                    Monitor:</label>
-                <select id="adminRegionSelect" onchange="onAdminRegionChange()"
-                    style="display: inline-block; width: auto; padding: 6px 12px; margin-top: 0; font-weight: bold;"></select>
+                <div style="margin-bottom: 8px;">
+                    <label
+                        style="display: inline-block; width: 120px; text-align: left; margin-top: 0; color: var(--text-secondary); font-size: 14px;">Region Monitor:</label>
+                    <select id="adminRegionSelect" onchange="onAdminRegionChange()"
+                        style="display: inline-block; width: 320px; padding: 6px 12px; margin-top: 0; font-weight: bold;"></select>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <label
+                        style="display: inline-block; width: 120px; text-align: left; margin-top: 0; color: var(--text-secondary); font-size: 14px;">Rekapan CRO:</label>
+                    <select id="adminCROSelect" onchange="onAdminCROChange()"
+                        style="display: inline-block; width: 320px; padding: 6px 12px; margin-top: 0; font-weight: bold;">
+                        <option value="">- Pilih CRO -</option>
+                        <option value="CRO I">CRO I (Aceh, Sumut 1, Sumut 2)</option>
+                        <option value="CRO II">CRO II (Riau 1)</option>
+                        <option value="CRO III">CRO III (Riau 2, Riau 3)</option>
+                        <option value="CRO IV">CRO IV (Riau 4)</option>
+                        <option value="CRO V">CRO V (Sumbar, Jambi, Babel)</option>
+                        <option value="CRO VI">CRO VI (Kalbar 1, Kalbar 2)</option>
+                        <option value="CRO VII">CRO VII (Kalsel 1, Kalsel 2, Kaltim, Kalut)</option>
+                        <option value="CRO VIII">CRO VIII (Kalteng 1, Kalteng 3)</option>
+                        <option value="CRO IX">CRO IX (Kalteng 2)</option>
+                        <option value="CRO X">CRO X (Sultra, Sulteng)</option>
+                    </select>
+                </div>
+                <div style="margin-top: 10px; text-align: center;">
+                    <button type="button" class="btn-submit" onclick="onAdminTotalAllClick()"
+                        style="display: inline-block; width: 450px; max-width: 100%; padding: 8px 12px; font-size: 14px; font-weight: bold;">
+                        Tampilkan Total Semua Region
+                    </button>
+                </div>
             </div>
 
             <p id="sessionInfo" class="session-info"></p>
@@ -863,7 +888,7 @@
 
         <!-- KOLOM KANAN: Grafik Realisasi Tiap Jam -->
         <div class="column-right">
-            <h3
+            <h3 id="chartTitle"
                 style="text-align: center; color: var(--text-primary); margin-top: 0; font-size: 30px; font-weight: bold;">
                 Grafik Realisasi Tiap Jam</h3>
             <div id="chartContainer"
@@ -1079,6 +1104,7 @@
         var isSubmitting = false;
         var sessionTimer = null;
         var currentEstimasiPanen = 0; // estimasi panen dalam Ton
+        var isAdminTotalAll = false;
 
         var statusText = document.getElementById("status");
         var submitBtn = document.getElementById("submitBtn");
@@ -1562,7 +1588,11 @@
 
             var compCard = document.getElementById("estimasiComparisonCard");
             if (compCard) compCard.style.display = "none";
-            currentEstimasiPanen = 0;
+            var adminSelect = document.getElementById("adminRegionSelect");
+            if (adminSelect) adminSelect.value = "";
+            var croSelect = document.getElementById("adminCROSelect");
+            if (croSelect) croSelect.value = "";
+            isAdminTotalAll = false;
 
             updateJamHint();
         }
@@ -1585,6 +1615,12 @@
                     if (adminSelect && adminSelect.options.length === 0) {
                         var loginSelect = document.getElementById("loginRegion");
                         adminSelect.innerHTML = "";
+                        
+                        var placeholderOpt = document.createElement("option");
+                        placeholderOpt.value = "";
+                        placeholderOpt.textContent = "- Pilih Region -";
+                        adminSelect.appendChild(placeholderOpt);
+
                         for (var i = 0; i < loginSelect.options.length; i++) {
                             var opt = loginSelect.options[i];
                             if (opt.value && opt.value !== "ADMIN") {
@@ -1608,7 +1644,76 @@
             }
         }
 
+        var CRO_GROUPS = {
+            "CRO I": ["Aceh", "Sumatera Utara 1", "Sumatera Utara 2 Ex Torganda"],
+            "CRO II": ["Riau 1"],
+            "CRO III": ["Riau 2", "Riau 3"],
+            "CRO IV": ["Riau 4"],
+            "CRO V": ["Sumatera Barat", "Jambi", "Bangka Belitung"],
+            "CRO VI": ["Kalimantan Barat 1", "Kalimantan Barat 2"],
+            "CRO VII": ["Kalimantan Selatan 1", "Kalimantan Selatan 2", "Kalimantan Timur", "Kalimantan Utara"],
+            "CRO VIII": ["Kalimantan Tengah 1", "Kalimantan Tengah 3"],
+            "CRO IX": ["Kalimantan Tengah 2"],
+            "CRO X": ["Sulawesi Tenggara", "Sulawesi Tengah"]
+        };
+
+        var ALL_REGIONS = [
+            "Aceh",
+            "Sumatera Utara 1",
+            "Sumatera Utara 2 Ex Torganda",
+            "Riau 1",
+            "Riau 2",
+            "Riau 3",
+            "Riau 4",
+            "Bangka Belitung",
+            "Jambi",
+            "Sumatera Barat",
+            "Sumatera Selatan",
+            "Kalimantan Barat 1",
+            "Kalimantan Barat 2",
+            "Kalimantan Selatan 1",
+            "Kalimantan Selatan 2",
+            "Kalimantan Timur",
+            "Kalimantan Utara",
+            "Kalimantan Tengah 1",
+            "Kalimantan Tengah 2",
+            "Kalimantan Tengah 3",
+            "Sulawesi Tenggara",
+            "Sulawesi Tengah"
+        ];
+
         function onAdminRegionChange() {
+            var croSelect = document.getElementById("adminCROSelect");
+            if (croSelect) {
+                croSelect.value = "";
+            }
+            isAdminTotalAll = false;
+            currentJamData = {};
+            updateJamHint();
+            checkAccumulation();
+        }
+
+        function onAdminCROChange() {
+            var adminSelect = document.getElementById("adminRegionSelect");
+            if (adminSelect) {
+                adminSelect.value = "";
+            }
+            isAdminTotalAll = false;
+            currentJamData = {};
+            updateJamHint();
+            checkAccumulation();
+        }
+
+        function onAdminTotalAllClick() {
+            var adminSelect = document.getElementById("adminRegionSelect");
+            if (adminSelect) {
+                adminSelect.value = "";
+            }
+            var croSelect = document.getElementById("adminCROSelect");
+            if (croSelect) {
+                croSelect.value = "";
+            }
+            isAdminTotalAll = true;
             currentJamData = {};
             updateJamHint();
             checkAccumulation();
@@ -1625,6 +1730,90 @@
             updateRunningText();
         }
 
+        function fetchAndAccumulate(regions, label, tanggal) {
+            if (!regions || regions.length === 0) return;
+
+            setLoading(true, "Mengambil data rekapan " + label + "...");
+
+            var totalRealisasi = 0;
+            var combinedJamData = {};
+            var totalEstimasi = 0;
+            
+            var completedData = 0;
+            var completedEstimasi = 0;
+            var hasError = false;
+            var errorMsg = "";
+
+            var hours = ["06.00", "07.00", "08.00", "09.00", "10.00", "11.00", "12.00", "13.00", "14.00", "15.00", "16.00", "17.30"];
+            for (var i = 0; i < hours.length; i++) {
+                combinedJamData[hours[i]] = 0;
+            }
+
+            regions.forEach(function(reg) {
+                // Fetch Realisasi
+                jsonpRequest(
+                    { action: "getData", tanggal: tanggal, region: reg },
+                    function(res) {
+                        if (res.success) {
+                            totalRealisasi += parseFloat(res.total) || 0;
+                            if (res.jamData) {
+                                Object.keys(res.jamData).forEach(function(h) {
+                                    combinedJamData[h] = (combinedJamData[h] || 0) + (parseFloat(res.jamData[h]) || 0);
+                                });
+                            }
+                        } else {
+                            hasError = true;
+                            errorMsg = res.message || "Gagal mengambil data " + reg;
+                        }
+                        completedData++;
+                        checkIfDone();
+                    },
+                    function(err) {
+                        hasError = true;
+                        errorMsg = err;
+                        completedData++;
+                        checkIfDone();
+                    }
+                );
+
+                // Fetch Estimasi
+                jsonpRequest(
+                    { action: "getEstimasiData", tanggal: tanggal, region: reg },
+                    function(estRes) {
+                        if (estRes.success && estRes.exists) {
+                            var estPanenKg = parseFloat(estRes.data.estimasiPanen) || 0;
+                            totalEstimasi += estPanenKg / 1000;
+                        }
+                        completedEstimasi++;
+                        checkIfDone();
+                    },
+                    function() {
+                        completedEstimasi++;
+                        checkIfDone();
+                    }
+                );
+            });
+
+            function checkIfDone() {
+                if (completedData === regions.length && completedEstimasi === regions.length) {
+                    setLoading(false);
+                    if (hasError && totalRealisasi === 0) {
+                        akumulasiEl.value = "0";
+                        currentJamData = {};
+                        setStatus(errorMsg, "#dc3545");
+                        currentEstimasiPanen = 0;
+                    } else {
+                        akumulasiEl.value = totalRealisasi.toFixed(2);
+                        currentJamData = combinedJamData;
+                        currentEstimasiPanen = totalEstimasi;
+                        setStatus("", "");
+                    }
+                    updateJamHint();
+                    updateEstimasiComparison();
+                }
+            }
+        }
+
         function checkAccumulation() {
             var tanggal = document.getElementById("tanggal").value;
             var s = loadSession();
@@ -1639,11 +1828,34 @@
             }
 
             var region = s.region;
+            var croGroup = "";
+
             if (s.region === "ADMIN") {
-                var adminSelect = document.getElementById("adminRegionSelect");
-                if (adminSelect) {
-                    region = adminSelect.value;
+                if (isAdminTotalAll) {
+                    fetchAndAccumulate(ALL_REGIONS, "Semua Region", tanggal);
+                    return;
                 }
+
+                var adminSelect = document.getElementById("adminRegionSelect");
+                var croSelect = document.getElementById("adminCROSelect");
+                if (croSelect && croSelect.value) {
+                    croGroup = croSelect.value;
+                } else if (adminSelect && adminSelect.value) {
+                    region = adminSelect.value;
+                } else {
+                    akumulasiEl.value = "0";
+                    currentJamData = {};
+                    updateJamHint();
+                    setLoading(false);
+                    currentEstimasiPanen = 0;
+                    updateEstimasiComparison();
+                    return;
+                }
+            }
+
+            if (croGroup) {
+                fetchAndAccumulate(CRO_GROUPS[croGroup], croGroup, tanggal);
+                return;
             }
 
             akumulasiEl.value = "";
@@ -1709,6 +1921,11 @@
             }
         }
 
+        function formatNumberId(num) {
+            if (typeof num !== "number") num = parseFloat(num) || 0;
+            return num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
         function updateEstimasiComparison() {
             var card = document.getElementById("estimasiComparisonCard");
             var compEstimasi = document.getElementById("compCardEstimasi");
@@ -1728,12 +1945,12 @@
             var totalRealisasi = parseFloat(document.getElementById("akumulasi").value) || 0;
 
             card.style.display = "block";
-            compRealisasi.textContent = totalRealisasi.toFixed(2) + " Ton";
+            compRealisasi.textContent = formatNumberId(totalRealisasi) + " Ton";
 
             if (currentEstimasiPanen > 0) {
-                compEstimasi.textContent = currentEstimasiPanen.toFixed(2) + " Ton";
+                compEstimasi.textContent = formatNumberId(currentEstimasiPanen) + " Ton";
                 var pct = (totalRealisasi / currentEstimasiPanen) * 100;
-                compPercentage.textContent = pct.toFixed(2) + "%";
+                compPercentage.textContent = formatNumberId(pct) + "%";
 
                 if (pct >= 100) {
                     compPercentage.style.color = "#28a745"; // Green
@@ -1743,10 +1960,11 @@
                     compPercentage.style.color = "#dc3545"; // Red
                 }
             } else {
-                compEstimasi.textContent = "0.00 Ton";
-                compPercentage.textContent = "0.00%";
+                compEstimasi.textContent = "0,00 Ton";
+                compPercentage.textContent = "0,00%";
                 compPercentage.style.color = "var(--text-muted)";
             }
+            updateChart();
         }
 
         // =========================================================================
@@ -2277,6 +2495,29 @@
             var canvas = document.getElementById("realisasiChart");
             if (!canvas) return;
 
+            // Update title dynamically
+            var titleEl = document.getElementById("chartTitle");
+            if (titleEl) {
+                var s = loadSession();
+                var titleText = "Grafik Realisasi Tiap Jam";
+                if (s) {
+                    if (s.region === "ADMIN") {
+                        var adminSelect = document.getElementById("adminRegionSelect");
+                        var croSelect = document.getElementById("adminCROSelect");
+                        if (isAdminTotalAll) {
+                            titleText += " - Semua Region";
+                        } else if (croSelect && croSelect.value) {
+                            titleText += " - " + croSelect.value;
+                        } else if (adminSelect && adminSelect.value) {
+                            titleText += " - " + adminSelect.value;
+                        }
+                    } else {
+                        titleText += " - " + s.region;
+                    }
+                }
+                titleEl.textContent = titleText;
+            }
+
             var hours = ["06.00", "07.00", "08.00", "09.00", "10.00", "11.00", "12.00", "13.00", "14.00", "15.00", "16.00", "17.30"];
             var dataValues = [];
             var hasData = false;
@@ -2338,21 +2579,18 @@
                                 ctx.textAlign = 'center';
                                 ctx.textBaseline = 'bottom';
 
-                                // Calculate percentage change compared to previous hour
-                                var prevVal = index > 0 ? dataset.data[index - 1] : 0;
+                                // Calculate percentage contribution up to current hour compared to estimated harvest plan
                                 var pctText = "";
                                 var pctColor = "";
 
-                                if (index > 0 && prevVal > 0) {
-                                    var diff = val - prevVal;
-                                    var pct = (diff / prevVal) * 100;
-                                    if (pct > 0) {
-                                        pctText = "+" + pct.toFixed(2) + "%";
-                                        pctColor = theme === "dark" ? "#4ade80" : "#28a745"; // Green for increase
-                                    } else if (pct < 0) {
-                                        pctText = pct.toFixed(2) + "%";
-                                        pctColor = theme === "dark" ? "#f87171" : "#dc3545"; // Red for decrease
+                                if (currentEstimasiPanen > 0) {
+                                    var cumulativeSum = 0;
+                                    for (var k = 0; k <= index; k++) {
+                                        cumulativeSum += dataset.data[k];
                                     }
+                                    var pct = (cumulativeSum / currentEstimasiPanen) * 100;
+                                    pctText = pct.toFixed(2) + "%";
+                                    pctColor = theme === "dark" ? "#cbd5e1" : "#444444";
                                 }
 
                                 // Draw value text
