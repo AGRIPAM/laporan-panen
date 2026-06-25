@@ -812,13 +812,15 @@
                 style="display: none; text-align: center; margin-top: -10px; margin-bottom: 15px;">
                 <div style="margin-bottom: 8px;">
                     <label
-                        style="display: inline-block; width: 120px; text-align: left; margin-top: 0; color: var(--text-secondary); font-size: 14px;">Region Monitor:</label>
+                        style="display: inline-block; width: 120px; text-align: left; margin-top: 0; color: var(--text-secondary); font-size: 14px;">Region
+                        Monitor:</label>
                     <select id="adminRegionSelect" onchange="onAdminRegionChange()"
                         style="display: inline-block; width: 320px; padding: 6px 12px; margin-top: 0; font-weight: bold;"></select>
                 </div>
                 <div style="margin-bottom: 8px;">
                     <label
-                        style="display: inline-block; width: 120px; text-align: left; margin-top: 0; color: var(--text-secondary); font-size: 14px;">Rekapan CRO:</label>
+                        style="display: inline-block; width: 120px; text-align: left; margin-top: 0; color: var(--text-secondary); font-size: 14px;">Rekapan
+                        CRO:</label>
                     <select id="adminCROSelect" onchange="onAdminCROChange()"
                         style="display: inline-block; width: 320px; padding: 6px 12px; margin-top: 0; font-weight: bold;">
                         <option value="">- Pilih CRO -</option>
@@ -1365,7 +1367,8 @@
             var yyyy = wibTime.getFullYear();
             var MM = String(wibTime.getMonth() + 1).padStart(2, '0');
             var dd = String(wibTime.getDate()).padStart(2, '0');
-            var tanggal = yyyy + "-" + MM + "-" + dd;
+            var todayDateStr = yyyy + "-" + MM + "-" + dd;
+            var tanggal = todayDateStr;
 
             // If user has selected a date in the form, use that instead
             var tanggalEl = document.getElementById("tanggal");
@@ -1373,30 +1376,56 @@
                 tanggal = tanggalEl.value;
             }
 
-            jsonpRequest(
-                { action: "getRunningTextData", tanggal: tanggal, region: "ALL" },
-                function (res) {
-                    // Check session and login section visibility again to prevent asynchronous race conditions
-                    var currentSession = loadSession();
-                    if (!currentSession || (loginSection && loginSection.style.display !== "none")) {
-                        container.style.display = "none";
-                        return;
-                    }
+            var isToday = (tanggal === todayDateStr);
+            var wibHourFloat = wibTime.getHours() + (wibTime.getMinutes() / 60);
 
-                    if (res.success && res.allRecords && res.allRecords.length > 0) {
+            var realisasiRes = null;
+            var estimasiRes = null;
+            var hasError = false;
+            var errorMsg = "";
+
+            function checkDone() {
+                // Check session and login section visibility again to prevent asynchronous race conditions
+                var currentSession = loadSession();
+                if (!currentSession || (loginSection && loginSection.style.display !== "none")) {
+                    container.style.display = "none";
+                    return;
+                }
+
+                if (hasError) {
+                    container.style.display = "block";
+                    content.innerHTML = '<span class="running-text-item" style="color: #dc3545;">Gagal memperbarui data running text: ' + errorMsg + '</span>';
+                    return;
+                }
+
+                if (realisasiRes && estimasiRes) {
+                    if (realisasiRes.success && realisasiRes.allRecords && realisasiRes.allRecords.length > 0) {
                         container.style.display = "block";
                         var displayDate = tanggal.split("-").reverse().join("/");
 
-                        // Group by region and sum tonase, keeping latest jam per region
+                        function parseHourFloat(jamStr) {
+                            if (!jamStr) return 0;
+                            var p = jamStr.split(".");
+                            var h = parseInt(p[0], 10) || 0;
+                            var m = parseInt(p[1], 10) || 0;
+                            return h + (m / 60);
+                        }
+
+                        // Group by region and sum tonase up to the current server hour
                         var regionMap = {};
-                        res.allRecords.forEach(function (rec) {
+                        realisasiRes.allRecords.forEach(function (rec) {
+                            // Filter by server hour if today
+                            if (isToday) {
+                                if (parseHourFloat(rec.jam) > wibHourFloat) {
+                                    return; // Skip future entries
+                                }
+                            }
+
                             var key = rec.region;
                             if (!regionMap[key]) {
-                                regionMap[key] = { region: rec.region, totalTonase: 0, latestJam: rec.jam, entries: [] };
+                                regionMap[key] = { region: rec.region, totalRealisasi: 0, latestJam: rec.jam };
                             }
-                            regionMap[key].totalTonase += rec.tonase;
-                            regionMap[key].entries.push(rec);
-                            // Keep the latest jam entry
+                            regionMap[key].totalRealisasi += rec.tonase;
                             if (rec.jam > regionMap[key].latestJam) {
                                 regionMap[key].latestJam = rec.jam;
                             }
@@ -1404,44 +1433,90 @@
 
                         var items = Object.keys(regionMap).map(function (key) {
                             var r = regionMap[key];
+                            var estObj = null;
+                            if (estimasiRes.allEstimasi) {
+                                var matchKey = Object.keys(estimasiRes.allEstimasi).find(function(k) {
+                                    return k.trim().toLowerCase() === key.trim().toLowerCase();
+                                });
+                                if (matchKey) {
+                                    estObj = estimasiRes.allEstimasi[matchKey];
+                                }
+                            }
+                            var estPanenKg = 0;
+                            if (estObj && estObj.estimasiPanen) {
+                                estPanenKg = parseFloat(estObj.estimasiPanen) || 0;
+                            }
+                            var estPanenTon = estPanenKg / 1000;
+
+                            var percentageStr = "-";
+                            if (estPanenTon > 0) {
+                                var percentage = (r.totalRealisasi / estPanenTon) * 100;
+                                percentageStr = percentage.toFixed(2) + "%";
+                            }
+
                             return '<span class="running-text-item">' +
-                                r.region + ' PRODUKSI <strong>(' + r.totalTonase.toFixed(2) + ' TON)</strong>, ' +
-                                r.latestJam + ' ' + displayDate +
+                                r.region + ' (Produksi s.d Jam ' + r.latestJam + ': <strong>' + r.totalRealisasi.toFixed(2) + ' Ton</strong>) ' +
+                                '<strong>' + percentageStr + '</strong>' +
                                 '</span>';
                         });
 
-                        // Duplicate items for seamless looping if few items
-                        var html = items.join(' <span style="margin: 0 15px; opacity: 0.3;">●</span> ');
-                        if (items.length < 5) {
-                            html = html + ' <span style="margin: 0 30px; opacity: 0.3;">●</span> ' + html;
-                        }
-                        if (content.innerHTML !== html) {
-                            content.innerHTML = html;
+                        if (items.length > 0) {
+                            // Duplicate items for seamless looping if few items
+                            var html = items.join(' <span style="margin: 0 15px; opacity: 0.3;">●</span> ');
+                            if (items.length < 5) {
+                                html = html + ' <span style="margin: 0 30px; opacity: 0.3;">●</span> ' + html;
+                            }
+                            if (content.innerHTML !== html) {
+                                content.innerHTML = html;
 
-                            // Reset animation for smooth restart
-                            content.style.animation = 'none';
-                            content.offsetHeight; // trigger reflow
-                            content.style.animation = '';
+                                // Reset animation for smooth restart
+                                content.style.animation = 'none';
+                                content.offsetHeight; // trigger reflow
+                                content.style.animation = '';
+                            }
+                        } else {
+                            if (isToday) {
+                                content.innerHTML = '<span class="running-text-item" style="font-style: italic; opacity: 0.7;">Belum ada laporan produksi masuk s.d jam server saat ini (' + displayDate + ')</span>';
+                            } else {
+                                content.innerHTML = '<span class="running-text-item" style="font-style: italic; opacity: 0.7;">Belum ada laporan produksi masuk untuk tanggal ' + displayDate + '</span>';
+                            }
                         }
                     } else {
                         container.style.display = "block";
-                        if (res && res.message) {
-                            content.innerHTML = '<span class="running-text-item" style="color: #dc3545; font-style: italic;">Info Server: ' + res.message + '</span>';
+                        if (realisasiRes && realisasiRes.message) {
+                            content.innerHTML = '<span class="running-text-item" style="color: #dc3545; font-style: italic;">Info Server: ' + realisasiRes.message + '</span>';
                         } else {
                             content.innerHTML = '<span class="running-text-item" style="font-style: italic; opacity: 0.7;">Belum ada laporan produksi masuk untuk tanggal ' + tanggal.split("-").reverse().join("/") + '</span>';
                         }
                     }
+                }
+            }
+
+            // Fetch Realisasi
+            jsonpRequest(
+                { action: "getRunningTextData", tanggal: tanggal, region: "ALL" },
+                function (res) {
+                    realisasiRes = res;
+                    checkDone();
                 },
                 function (errMsg) {
-                    // Check session and login section visibility again to prevent asynchronous race conditions
-                    var currentSession = loadSession();
-                    if (!currentSession || (loginSection && loginSection.style.display !== "none")) {
-                        container.style.display = "none";
-                        return;
-                    }
+                    hasError = true;
+                    errorMsg = errMsg;
+                    checkDone();
+                }
+            );
 
-                    container.style.display = "block";
-                    content.innerHTML = '<span class="running-text-item" style="color: #dc3545;">Gagal memperbarui data running text.</span>';
+            // Fetch Estimasi
+            jsonpRequest(
+                { action: "getEstimasiData", tanggal: tanggal, region: "ALL" },
+                function (res) {
+                    estimasiRes = res;
+                    checkDone();
+                },
+                function (errMsg) {
+                    // Fallback to empty estimates on error instead of breaking the running text
+                    estimasiRes = { success: true, allEstimasi: {} };
+                    checkDone();
                 }
             );
         }
@@ -1472,6 +1547,7 @@
                         applyUserRoleUI();
 
                         startHeartbeat();
+                        startAdminAutoUpdate();
 
                         currentJamData = {};
                         updateJamHint();
@@ -1554,6 +1630,35 @@
             }
         }
 
+        // =========================================================================
+        // ✅ BARU: AUTO UPDATE ADMIN — update data panen tiap 30 detik tanpa refresh
+        // =========================================================================
+        var adminAutoUpdateInterval = null;
+
+        function startAdminAutoUpdate() {
+            stopAdminAutoUpdate(); // Bersihkan yang lama dulu
+            var s = loadSession();
+            if (!s || s.region !== "ADMIN") return;
+
+            adminAutoUpdateInterval = setInterval(function () {
+                var s2 = loadSession();
+                // Pastikan user masih login sebagai ADMIN dan sedang tidak menginput data/loading manual
+                if (!s2 || s2.region !== "ADMIN" || isSubmitting) return;
+
+                var loadingOverlay = document.getElementById("loadingOverlay");
+                if (loadingOverlay && loadingOverlay.style.display === "flex") return;
+
+                checkAccumulation(true); // Silent update = true
+            }, 30 * 1000); // Setiap 30 detik
+        }
+
+        function stopAdminAutoUpdate() {
+            if (adminAutoUpdateInterval) {
+                clearInterval(adminAutoUpdateInterval);
+                adminAutoUpdateInterval = null;
+            }
+        }
+
         // Logout normal (dengan broadcast)
         function prosesLogout() {
             var s = loadSession();
@@ -1565,6 +1670,7 @@
                 );
             }
             stopHeartbeat(); // ✅ BARU: hentikan heartbeat
+            stopAdminAutoUpdate(); // ✅ BARU: hentikan auto-update admin
             clearSession();
             if (bc) bc.postMessage({ type: "SESSION_ENDED" });
             _resetUI();
@@ -1572,6 +1678,7 @@
         // Logout diam-diam karena dipaksa oleh BroadcastChannel (tidak perlu broadcast balik)
         function prosesLogoutSilent() {
             stopHeartbeat(); // ✅ BARU: hentikan heartbeat
+            stopAdminAutoUpdate(); // ✅ BARU: hentikan auto-update admin
             clearSession();
             _resetUI();
         }
@@ -1631,7 +1738,7 @@
                     if (adminSelect && adminSelect.options.length === 0) {
                         var loginSelect = document.getElementById("loginRegion");
                         adminSelect.innerHTML = "";
-                        
+
                         var placeholderOpt = document.createElement("option");
                         placeholderOpt.value = "";
                         placeholderOpt.textContent = "- Pilih Region -";
@@ -1746,15 +1853,17 @@
             updateRunningText();
         }
 
-        function fetchAndAccumulate(regions, label, tanggal) {
+        function fetchAndAccumulate(regions, label, tanggal, isSilent) {
             if (!regions || regions.length === 0) return;
 
-            setLoading(true, "Mengambil data rekapan " + label + "...");
+            if (!isSilent) {
+                setLoading(true, "Mengambil data rekapan " + label + "...");
+            }
 
             var totalRealisasi = 0;
             var combinedJamData = {};
             var totalEstimasi = 0;
-            
+
             var completedData = 0;
             var completedEstimasi = 0;
             var hasError = false;
@@ -1765,15 +1874,15 @@
                 combinedJamData[hours[i]] = 0;
             }
 
-            regions.forEach(function(reg) {
+            regions.forEach(function (reg) {
                 // Fetch Realisasi
                 jsonpRequest(
                     { action: "getData", tanggal: tanggal, region: reg },
-                    function(res) {
+                    function (res) {
                         if (res.success) {
                             totalRealisasi += parseFloat(res.total) || 0;
                             if (res.jamData) {
-                                Object.keys(res.jamData).forEach(function(h) {
+                                Object.keys(res.jamData).forEach(function (h) {
                                     combinedJamData[h] = (combinedJamData[h] || 0) + (parseFloat(res.jamData[h]) || 0);
                                 });
                             }
@@ -1784,7 +1893,7 @@
                         completedData++;
                         checkIfDone();
                     },
-                    function(err) {
+                    function (err) {
                         hasError = true;
                         errorMsg = err;
                         completedData++;
@@ -1795,7 +1904,7 @@
                 // Fetch Estimasi
                 jsonpRequest(
                     { action: "getEstimasiData", tanggal: tanggal, region: reg },
-                    function(estRes) {
+                    function (estRes) {
                         if (estRes.success && estRes.exists) {
                             var estPanenKg = parseFloat(estRes.data.estimasiPanen) || 0;
                             totalEstimasi += estPanenKg / 1000;
@@ -1803,7 +1912,7 @@
                         completedEstimasi++;
                         checkIfDone();
                     },
-                    function() {
+                    function () {
                         completedEstimasi++;
                         checkIfDone();
                     }
@@ -1812,7 +1921,9 @@
 
             function checkIfDone() {
                 if (completedData === regions.length && completedEstimasi === regions.length) {
-                    setLoading(false);
+                    if (!isSilent) {
+                        setLoading(false);
+                    }
                     if (hasError && totalRealisasi === 0) {
                         akumulasiEl.value = "0";
                         currentJamData = {};
@@ -1830,14 +1941,16 @@
             }
         }
 
-        function checkAccumulation() {
+        function checkAccumulation(isSilent) {
             var tanggal = document.getElementById("tanggal").value;
             var s = loadSession();
             if (!tanggal || !s) {
                 akumulasiEl.value = "0";
                 currentJamData = {};
                 updateJamHint();
-                setLoading(false);
+                if (!isSilent) {
+                    setLoading(false);
+                }
                 currentEstimasiPanen = 0;
                 updateEstimasiComparison();
                 return;
@@ -1848,7 +1961,7 @@
 
             if (s.region === "ADMIN") {
                 if (isAdminTotalAll) {
-                    fetchAndAccumulate(ALL_REGIONS, "Semua Region", tanggal);
+                    fetchAndAccumulate(ALL_REGIONS, "Semua Region", tanggal, isSilent);
                     return;
                 }
 
@@ -1862,7 +1975,9 @@
                     akumulasiEl.value = "0";
                     currentJamData = {};
                     updateJamHint();
-                    setLoading(false);
+                    if (!isSilent) {
+                        setLoading(false);
+                    }
                     currentEstimasiPanen = 0;
                     updateEstimasiComparison();
                     return;
@@ -1870,12 +1985,14 @@
             }
 
             if (croGroup) {
-                fetchAndAccumulate(CRO_GROUPS[croGroup], croGroup, tanggal);
+                fetchAndAccumulate(CRO_GROUPS[croGroup], croGroup, tanggal, isSilent);
                 return;
             }
 
-            akumulasiEl.value = "";
-            setLoading(true, "Mengambil data realisasi...");
+            if (!isSilent) {
+                akumulasiEl.value = "";
+                setLoading(true, "Mengambil data realisasi...");
+            }
 
             jsonpRequest(
                 { action: "getData", tanggal: tanggal, region: region },
@@ -1895,7 +2012,9 @@
                     jsonpRequest(
                         { action: "getEstimasiData", tanggal: tanggal, region: region },
                         function (estRes) {
-                            setLoading(false);
+                            if (!isSilent) {
+                                setLoading(false);
+                            }
                             if (estRes.success && estRes.exists) {
                                 var estPanenKg = parseFloat(estRes.data.estimasiPanen) || 0;
                                 currentEstimasiPanen = estPanenKg / 1000; // Konversi Kg ke Ton
@@ -1905,14 +2024,18 @@
                             updateEstimasiComparison();
                         },
                         function () {
-                            setLoading(false);
+                            if (!isSilent) {
+                                setLoading(false);
+                            }
                             currentEstimasiPanen = 0;
                             updateEstimasiComparison();
                         }
                     );
                 },
                 function (errMsg) {
-                    setLoading(false);
+                    if (!isSilent) {
+                        setLoading(false);
+                    }
                     akumulasiEl.value = "0";
                     setStatus(errMsg, "#dc3545");
                     currentEstimasiPanen = 0;
@@ -2453,6 +2576,7 @@
                 applyUserRoleUI();
                 scheduleSessionWarning(s.expiry);
                 startHeartbeat(); // ✅ BARU: lanjutkan heartbeat setelah refresh halaman
+                startAdminAutoUpdate(); // ✅ BARU: jalankan auto-update admin
                 currentJamData = {};
                 updateJamHint();
             }
