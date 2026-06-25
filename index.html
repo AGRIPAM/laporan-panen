@@ -369,30 +369,44 @@
         }
 
         @media (min-width: 769px) {
-            .layout-wrapper.admin-layout {
-                height: calc(100vh - 100px);
+            body.dashboard-active {
+                height: 100vh;
+                overflow: hidden;
+                padding: 20px 20px 50px 20px !important;
                 box-sizing: border-box;
             }
 
-            .layout-wrapper.admin-layout .column-left,
-            .layout-wrapper.admin-layout .column-right {
+            body.dashboard-active .layout-wrapper {
+                height: calc(100vh - 70px);
+                box-sizing: border-box;
+            }
+
+            body.dashboard-active .column-left {
+                height: 100%;
+                max-height: 100%;
+                box-sizing: border-box;
+                overflow-y: auto;
+            }
+
+            body.dashboard-active .column-right {
                 height: 100%;
                 max-height: 100%;
                 box-sizing: border-box;
                 overflow: hidden;
             }
 
-            .layout-wrapper.admin-layout #chartContainer {
+            body.dashboard-active #chartContainer {
                 position: relative;
                 flex: 1 1 0%;
                 min-height: 0;
                 width: 100% !important;
+                height: 100% !important;
                 max-width: 100% !important;
                 aspect-ratio: auto !important;
                 margin: 10px 0;
             }
 
-            .layout-wrapper.admin-layout #realisasiChart {
+            body.dashboard-active #realisasiChart {
                 width: 100% !important;
                 height: 100% !important;
             }
@@ -646,7 +660,7 @@
             display: inline-block;
             white-space: nowrap;
             padding-left: 100%;
-            animation: marquee 60s linear infinite;
+            animation: marquee 75s linear infinite;
         }
 
         .running-text-content:hover {
@@ -1453,6 +1467,7 @@
 
                         document.getElementById("loginSection").style.display = "none";
                         document.getElementById("mainSection").style.display = "flex";
+                        document.body.classList.add("dashboard-active");
                         document.getElementById("loginPassword").value = "";
                         applyUserRoleUI();
 
@@ -1564,6 +1579,7 @@
         function _resetUI() {
             currentJamData = {};
             isSubmitting = false;
+            document.body.classList.remove("dashboard-active");
 
             var mainSection = document.getElementById("mainSection");
             if (mainSection) {
@@ -2185,6 +2201,7 @@
                 document.getElementById("mainSection").style.display = "none";
                 document.getElementById("loginSection").style.display = "none";
                 document.getElementById("estimasiSection").style.display = "block";
+                document.body.classList.remove("dashboard-active");
                 document.getElementById("displayRegionEstimasi").textContent = "Region: " + s.region;
 
                 var estDateEl = document.getElementById("tanggalEstimasi");
@@ -2209,6 +2226,7 @@
                 document.getElementById("estimasiSection").style.display = "none";
                 document.getElementById("loginSection").style.display = "none";
                 document.getElementById("mainSection").style.display = "flex";
+                document.body.classList.add("dashboard-active");
                 hideLoading();
             }, 400);
         }
@@ -2431,6 +2449,7 @@
                 // Tab ini sudah punya sesi (refresh) — langsung aktif, tidak perlu query
                 document.getElementById("loginSection").style.display = "none";
                 document.getElementById("mainSection").style.display = "flex";
+                document.body.classList.add("dashboard-active");
                 applyUserRoleUI();
                 scheduleSessionWarning(s.expiry);
                 startHeartbeat(); // ✅ BARU: lanjutkan heartbeat setelah refresh halaman
