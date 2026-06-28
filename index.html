@@ -1230,7 +1230,8 @@
             var estDay = parseInt(parts[2], 10);
 
             var deadline = new Date(estYear, estMonth, estDay - 1, 22, 0, 0, 0);
-            var isLocked = wibNow.getTime() > deadline.getTime();
+            // Batas pengisian dibuka sementara atas permintaan user
+            var isLocked = false; // wibNow.getTime() > deadline.getTime();
 
             setLoading(true, "Memeriksa data estimasi...");
 
@@ -1435,7 +1436,7 @@
                             var r = regionMap[key];
                             var estObj = null;
                             if (estimasiRes.allEstimasi) {
-                                var matchKey = Object.keys(estimasiRes.allEstimasi).find(function(k) {
+                                var matchKey = Object.keys(estimasiRes.allEstimasi).find(function (k) {
                                     return k.trim().toLowerCase() === key.trim().toLowerCase();
                                 });
                                 if (matchKey) {
@@ -2402,7 +2403,8 @@
 
             var deadline = new Date(estYear, estMonth, estDay - 1, 22, 0, 0, 0);
 
-            if (wibNow.getTime() > deadline.getTime()) {
+            // Batas pengisian dibuka sementara atas permintaan user
+            if (false && wibNow.getTime() > deadline.getTime()) {
                 var d1 = new Date(estYear, estMonth, estDay - 1);
                 var d1Day = String(d1.getDate()).padStart(2, '0');
                 var d1Month = String(d1.getMonth() + 1).padStart(2, '0');
