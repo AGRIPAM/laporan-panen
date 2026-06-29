@@ -865,6 +865,15 @@
                         Tampilkan Total Semua Region
                     </button>
                 </div>
+                <div style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; text-align: center;">
+                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: bold; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Aksi Laporan & Screenshot:</span>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <button type="button" id="btnScreenshotAll" class="btn-screenshot-sore" onclick="triggerScreenshotAllRegions()"
+                            style="padding: 10px 16px; font-size: 13px; font-weight: bold; border-radius: 6px; flex: 1; min-width: 180px; margin-top: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                            📸 Kirim Laporan Grafik Semua Region
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <p id="sessionInfo" class="session-info"></p>
@@ -2125,40 +2134,6 @@
         // AKUMULASI & JAM HINT
         // =========================================================================
 
-        function checkAutoReportSchedule() {
-            var s = loadSession();
-            if (!s || s.region !== "ADMIN") return;
-
-            var now = new Date();
-            var utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-            var wibTime = new Date(utc + (7 * 3600000));
-
-            var hh = String(wibTime.getHours()).padStart(2, '0');
-            var mm = String(wibTime.getMinutes()).padStart(2, '0');
-            var timeStr = hh + "." + mm;
-
-            var targetTimes = [
-                "06.00", "07.00", "08.00", "09.00", "10.00", "11.00",
-                "12.00", "13.00", "14.00", "15.00", "16.00", "17.30"
-            ];
-
-            if (targetTimes.indexOf(timeStr) !== -1) {
-                if (window._lastTriggeredTime === timeStr) return;
-                window._lastTriggeredTime = timeStr;
-
-                console.log("Auto-triggering screenshot report at " + timeStr + " WIB");
-                
-                // Automatically set date to today (WIB)
-                var yyyy = wibTime.getFullYear();
-                var month = String(wibTime.getMonth() + 1).padStart(2, '0');
-                var dd = String(wibTime.getDate()).padStart(2, '0');
-                document.getElementById("tanggal").value = yyyy + "-" + month + "-" + dd;
-                
-                // Automatically switch to total view and trigger screenshot
-                onAdminTotalAllClick();
-            }
-        }
-        setInterval(checkAutoReportSchedule, 30000);
 
         function onTanggalChange() {
             currentJamData = {};
@@ -2252,55 +2227,7 @@
                     updateJamHint();
                     updateEstimasiComparison();
 
-                    // AUTO-SCREENSHOT LOGIC FOR ADMIN ACTIVE DASHBOARD ON "Semua Region"
-                    var s = loadSession();
-                    if (s && s.region === "ADMIN" && label === "Semua Region" && !window._isScreenshotRunning && !isSilent) {
-                        window._isScreenshotRunning = true;
 
-                        var originalAnimation = myChart.options.animation;
-                        myChart.options.animation = { duration: 0 };
-                        myChart.update();
-
-                        setLoading(true, "Mengambil screenshot otomatis...");
-
-                        setTimeout(function () {
-                            html2canvas(document.querySelector(".column-right"), {
-                                backgroundColor: null,
-                                scale: 1.2
-                            }).then(function (canvas) {
-                                var base64Data = canvas.toDataURL("image/jpeg", 0.95);
-
-                                // Restore animation
-                                myChart.options.animation = originalAnimation;
-                                myChart.update();
-
-                                setLoading(true, "Mengirim screenshot otomatis ke WhatsApp...");
-
-                                postRequest(
-                                    {
-                                        action: "sendScreenshotActiveDashboard",
-                                        token: s.token,
-                                        tanggal: tanggal,
-                                        base64Data: base64Data
-                                    },
-                                    function (res) {
-                                        setLoading(false);
-                                        window._isScreenshotRunning = false;
-                                        if (res.success) {
-                                            alert("Screenshot otomatis Semua Region berhasil dikirim ke WhatsApp!");
-                                        } else {
-                                            alert("Gagal mengirim screenshot otomatis: " + res.message);
-                                        }
-                                    },
-                                    function (err) {
-                                        setLoading(false);
-                                        window._isScreenshotRunning = false;
-                                        alert("Koneksi gagal saat mengirim screenshot otomatis.");
-                                    }
-                                );
-                            });
-                        }, 800);
-                    }
                 }
             }
         }
