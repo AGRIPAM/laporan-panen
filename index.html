@@ -713,7 +713,6 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -864,15 +863,6 @@
                         style="display: inline-block; width: 450px; max-width: 100%; padding: 8px 12px; font-size: 14px; font-weight: bold;">
                         Tampilkan Total Semua Region
                     </button>
-                </div>
-                <div style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; text-align: center;">
-                    <span style="font-size: 12px; color: var(--text-secondary); font-weight: bold; display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Aksi Laporan & Screenshot:</span>
-                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                        <button type="button" id="btnScreenshotAll" class="btn-screenshot-sore" onclick="triggerScreenshotAllRegions()"
-                            style="padding: 10px 16px; font-size: 13px; font-weight: bold; border-radius: 6px; flex: 1; min-width: 180px; margin-top: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                            📸 Kirim Laporan Grafik Semua Region
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -1837,261 +1827,7 @@
             "Sulawesi Tengah"
         ];
 
-        function postRequest(params, onSuccess, onError) {
-            var searchParams = new URLSearchParams();
-            for (var key in params) {
-                if (params.hasOwnProperty(key)) {
-                    searchParams.append(key, params[key]);
-                }
-            }
 
-            fetch(SCRIPT_URL, {
-                method: "POST",
-                mode: "cors",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                body: searchParams.toString()
-            })
-            .then(function (response) {
-                return response.json();
-            })
-            .then(function (res) {
-                onSuccess(res);
-            })
-            .catch(function (err) {
-                if (onError) {
-                    onError(err);
-                } else {
-                    console.error("POST Request Error:", err);
-                }
-            });
-        }
-
-        function fetchAccumulatedDataForScreenshot(regions, tanggal, callback) {
-            var totalRealisasi = 0;
-            var combinedJamData = {};
-            var totalEstimasi = 0;
-            var completedData = 0;
-            var completedEstimasi = 0;
-            var hours = ["06.00", "07.00", "08.00", "09.00", "10.00", "11.00", "12.00", "13.00", "14.00", "15.00", "16.00", "17.30"];
-            for (var i = 0; i < hours.length; i++) {
-                combinedJamData[hours[i]] = 0;
-            }
-
-            regions.forEach(function (reg) {
-                // Fetch Realisasi
-                jsonpRequest(
-                    { action: "getData", tanggal: tanggal, region: reg },
-                    function (res) {
-                        if (res.success) {
-                            totalRealisasi += parseFloat(res.total) || 0;
-                            if (res.jamData) {
-                                Object.keys(res.jamData).forEach(function (h) {
-                                    combinedJamData[h] = (combinedJamData[h] || 0) + (parseFloat(res.jamData[h]) || 0);
-                                });
-                            }
-                        }
-                        completedData++;
-                        checkIfDone();
-                    },
-                    function () {
-                        completedData++;
-                        checkIfDone();
-                    }
-                );
-
-                // Fetch Estimasi
-                jsonpRequest(
-                    { action: "getEstimasiData", tanggal: tanggal, region: reg },
-                    function (estRes) {
-                        if (estRes.success && estRes.exists) {
-                            var estPanenKg = parseFloat(estRes.data.estimasiPanen) || 0;
-                            totalEstimasi += estPanenKg / 1000;
-                        }
-                        completedEstimasi++;
-                        checkIfDone();
-                    },
-                    function () {
-                        completedEstimasi++;
-                        checkIfDone();
-                    }
-                );
-            });
-
-            function checkIfDone() {
-                if (completedData === regions.length && completedEstimasi === regions.length) {
-                    callback({
-                        success: true,
-                        total: totalRealisasi,
-                        jamData: combinedJamData,
-                        totalEstimasi: totalEstimasi
-                    });
-                }
-            }
-        }
-
-        function triggerScreenshotAllRegions() {
-            var s = loadSession();
-            if (!s || s.region !== "ADMIN") return;
-
-            var tanggal = document.getElementById("tanggal").value;
-            if (!tanggal) {
-                alert("Harap pilih tanggal laporan terlebih dahulu!");
-                return;
-            }
-
-            if (!confirm("Apakah Anda yakin ingin mengambil screenshot grafik realisasi tiap jam untuk semua region dan mengirimkan laporan ke WhatsApp?")) {
-                return;
-            }
-
-            // Save original view configurations
-            var originalRegion = document.getElementById("adminRegionSelect").value;
-            var originalCRO = document.getElementById("adminCROSelect").value;
-            var originalIsAdminTotalAll = isAdminTotalAll;
-
-            // Start screenshot state
-            window._isScreenshotRunning = true;
-            setLoading(true, "Memulai pemrosesan screenshot...");
-
-            var regionsToProcess = ALL_REGIONS.slice();
-            var linksMap = {};
-
-            function processNextRegion(index) {
-                if (index < regionsToProcess.length) {
-                    var currentRegion = regionsToProcess[index];
-                    setLoading(true, "Memproses Region " + (index + 1) + "/" + regionsToProcess.length + ": " + currentRegion + "...");
-
-                    jsonpRequest(
-                        { action: "getData", tanggal: tanggal, region: currentRegion },
-                        function (res) {
-                            var totalReal = res.success ? parseFloat(res.total) || 0 : 0;
-                            var jamData = res.success ? res.jamData || {} : {};
-
-                            jsonpRequest(
-                                { action: "getEstimasiData", tanggal: tanggal, region: currentRegion },
-                                function (estRes) {
-                                    var totalEst = 0;
-                                    if (estRes.success && estRes.exists) {
-                                        totalEst = (parseFloat(estRes.data.estimasiPanen) || 0) / 1000;
-                                    }
-
-                                    // Update UI temporarily to render this specific region
-                                    currentJamData = jamData;
-                                    currentEstimasiPanen = totalEst;
-                                    document.getElementById("akumulasi").value = totalReal.toFixed(2);
-                                    document.getElementById("chartTitle").textContent = "Grafik Realisasi Tiap Jam - " + currentRegion;
-
-                                    updateChart();
-                                    updateEstimasiComparison();
-
-                                    // Small delay to let Chart.js render instantly (duration 0)
-                                    setTimeout(function () {
-                                        html2canvas(document.querySelector(".column-right"), {
-                                            backgroundColor: null,
-                                            scale: 1.2
-                                        }).then(function (canvas) {
-                                            var base64Data = canvas.toDataURL("image/jpeg", 0.95);
-
-                                            postRequest(
-                                                {
-                                                    action: "uploadScreenshot",
-                                                    token: s.token,
-                                                    region: currentRegion,
-                                                    tanggal: tanggal,
-                                                    base64Data: base64Data
-                                                },
-                                                function (uploadRes) {
-                                                    if (uploadRes.success) {
-                                                        linksMap[currentRegion] = uploadRes.url;
-                                                    }
-                                                    processNextRegion(index + 1);
-                                                },
-                                                function (err) {
-                                                    console.error("Gagal mengupload screenshot region " + currentRegion, err);
-                                                    processNextRegion(index + 1);
-                                                }
-                                            );
-                                        });
-                                    }, 600);
-                                },
-                                function () {
-                                    processNextRegion(index + 1);
-                                }
-                            );
-                        },
-                        function () {
-                            processNextRegion(index + 1);
-                        }
-                    );
-                } else {
-                    // All regions processed, now process "Semua Region" summary
-                    setLoading(true, "Memproses Ringkasan Semua Region...");
-
-                    fetchAccumulatedDataForScreenshot(ALL_REGIONS, tanggal, function (result) {
-                        currentJamData = result.jamData;
-                        currentEstimasiPanen = result.totalEstimasi;
-                        document.getElementById("akumulasi").value = result.total.toFixed(2);
-                        document.getElementById("chartTitle").textContent = "Grafik Realisasi Tiap Jam - Semua Region";
-
-                        updateChart();
-                        updateEstimasiComparison();
-
-                        setTimeout(function () {
-                            html2canvas(document.querySelector(".column-right"), {
-                                backgroundColor: null,
-                                scale: 1.2
-                            }).then(function (canvas) {
-                                var base64Data = canvas.toDataURL("image/jpeg", 0.95);
-
-                                setLoading(true, "Mengirim laporan ringkasan ke WhatsApp...");
-
-                                postRequest(
-                                    {
-                                        action: "sendScreenshotSummary",
-                                        token: s.token,
-                                        tanggal: tanggal,
-                                        base64Data: base64Data,
-                                        links: JSON.stringify(linksMap)
-                                    },
-                                    function (summaryRes) {
-                                        setLoading(false);
-                                        window._isScreenshotRunning = false;
-
-                                        // Restore original view configurations
-                                        isAdminTotalAll = originalIsAdminTotalAll;
-                                        document.getElementById("adminRegionSelect").value = originalRegion;
-                                        document.getElementById("adminCROSelect").value = originalCRO;
-                                        checkAccumulation(true);
-
-                                        if (summaryRes.success) {
-                                            alert("Laporan grafik semua region berhasil dikirim ke WhatsApp kelompok!");
-                                        } else {
-                                            alert("Gagal mengirim laporan ringkasan: " + summaryRes.message);
-                                        }
-                                    },
-                                    function (err) {
-                                        setLoading(false);
-                                        window._isScreenshotRunning = false;
-
-                                        // Restore original view configurations
-                                        isAdminTotalAll = originalIsAdminTotalAll;
-                                        document.getElementById("adminRegionSelect").value = originalRegion;
-                                        document.getElementById("adminCROSelect").value = originalCRO;
-                                        checkAccumulation(true);
-
-                                        alert("Koneksi gagal saat mengirim laporan ringkasan ke WhatsApp.");
-                                    }
-                                );
-                            });
-                        }, 800);
-                    });
-                }
-            }
-
-            // Start the loop
-            processNextRegion(0);
-        }
 
         function onAdminRegionChange() {
             var croSelect = document.getElementById("adminCROSelect");
@@ -2978,7 +2714,6 @@
                 gradient.addColorStop(1, 'rgba(40, 167, 69, 0.15)');
                 myChart.data.datasets[0].backgroundColor = gradient;
 
-                myChart.options.animation = { duration: (window._isScreenshotRunning ? 0 : 1000) };
                 myChart.update();
             } else {
                 var ctx = canvas.getContext("2d");
@@ -3063,9 +2798,6 @@
                         }]
                     },
                     options: {
-                        animation: {
-                            duration: (window._isScreenshotRunning ? 0 : 1000)
-                        },
                         responsive: true,
                         maintainAspectRatio: false,
                         scales: {
